@@ -1,29 +1,39 @@
-Edit an invariant in place when a decision changes it; git is the history. No ADRs.
+# LazyCop — Architecture Invariants
+
+These are the constraints the code must never violate. A goal that can only be
+reached by bending one is invalid; change the invariant here first, deliberately.
 
 ## Invariants
 
-- **Hooks never block on slow work.** Hooks only append to or read small files in `.lazycop/`; all slow logic runs in the companion process. Why: the main agent must never wait on LazyCop.
+**1. Hooks fail open and never block on the server.**
+Bob hooks run with a short timeout (10 s per Bob 2.2.0) and must exit 0 if the
+LazyCop server is unreachable. No hook may wait on I/O beyond that timeout. The
+main Bob agent must never be held by a LazyCop server failure.
 
-- **Append-only JSONL.** `events.jsonl` and `inbox.jsonl` are append-only; no component rewrites another component's lines. In `inbox.jsonl`, the latest record per `id` wins. Why: concurrent writers (hook + companion) never conflict.
+**2. LazyCop's own MCP tools are never blocked by LazyCop's hooks.**
+`mcp__lazycop__*` tool calls (declare_step, check_in, reply_to_developer) are
+exempt from PreToolUse blocks and PostToolUse delays. Blocking them would
+deadlock Bob mid-hold.
 
-- **One process, one state.** The MCP server and the companion share one process and one in-memory state. Why: a correction queued from the panel is then visible to both `check_in` and the PreToolUse hook without inter-process messaging.
+**3. Every wait on the developer ends.**
+- A pause (declare_step with assumption) waits at most 20 s, then Bob continues.
+- A hold (declare_step with important: true, or the Hold button): each check_in
+  waits at most 45 s, at most 3 waits per hold, then Bob is released automatically.
+- The 45 s per-wait ceiling stays under Bob's MCP client default request timeout
+  of 60 s.
 
-- **Companion is not a subagent.** The companion is a separate process, not a Bob subagent. Why: Bob subagents return a summary to the main agent and cannot run alongside it or talk to the developer independently.
+**4. The browser page is only a view; all state lives in the local server.**
+The page receives cards over server-sent events and posts answers back. Closing
+or reloading the page loses nothing. The page holds no authoritative state.
 
-- **Contracts are shared types.** `plan.md` sections, `baseline.json`, `events.jsonl`, and `inbox.jsonl` are the contracts between all components. Their TypeScript types live in one shared place and are imported by every surface; never redeclared. Why: a shape change propagates everywhere at once and the compiler catches every consumer.
+**5. LazyCop binds only to localhost.**
+The server listens on `127.0.0.1` only. Bob's HTTP hooks are not used because
+they require a trusted HTTPS endpoint; command hooks that call localhost are used
+instead. The only outbound traffic is the companion's call to its card-writing
+LLM (Granite on watsonx.ai); Bob-facing channels never leave localhost.
 
-- **One panel.** The panel is one frontend component, shared by the VS Code extension, the browser panel, and the web demo. Why: no three-way drift; a fix or feature lands everywhere.
-
-- **Hook field names come from real data.** Bob hook field names and tool names are mapped from observed hook input, never assumed from docs. Why: the spec notes hook inputs are undocumented; guessing them produces silent mismatches.
-
-- **Credentials never in the repo.** No credentials anywhere in the repo or in `bob_sessions/` exports. The watsonx key is server-side only (Vercel function). Why: the repo is public and `bob_sessions` are committed as judging evidence.
-
-- **Dev harness vs product.** This repo's `.bob/` is the dev harness for building LazyCop. LazyCop's own product hooks are never registered here; they are developed and tested against the sample shop app. Why: keeps dev tooling and product artefacts from colliding.
-
-- **PreToolUse reads only local files.** The PreToolUse hook reads only `baseline.json`, `inbox.jsonl`, and a budget flag from `.lazycop/`. It must return within Bob's 10-second hook timeout. Why: a slow or network-dependent hook stalls every agent tool call.
-
-- **SessionStart injects only procedure rules.** The SessionStart hook injects only the LazyCop procedure rules because no plan exists at session start. After the gate, `plan.md` and `baseline.json` are read by the LazyCop Run mode directly. Why: SessionStart fires before any plan exists; injecting stale or absent plan data would mislead the model.
-
-- **Gate lock is enforced, not recommended.** Until the developer passes the planning gate, the PreToolUse hook blocks every edit tool. Why: the procedure must be enforceable, not just a convention the model can ignore.
-
-- **Coin and context figures are estimates.** Characters read/written are used to approximate token counts because hook inputs are not documented to include token counts. The estimate is labelled as such; Bob's task consumption summary is the authoritative figure. Why: silent overconfidence in an estimate misleads both the developer and the scorecard.
+**6. Contract types live only in the shared package.**
+The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`,
+`ReplyToDeveloperInput`, hook payloads, and `.lazycop/` record kinds) are declared
+once in `packages/contracts` and imported everywhere; they are never re-declared
+in a surface package.
