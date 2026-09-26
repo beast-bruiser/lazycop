@@ -1,0 +1,123 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>LazyCop Spike</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root { --bg:#f7f7f5; --fg:#1d1d1b; --muted:#6b6b66; --card:#fff; --line:#e2e2dc; --accent:#2f6fde; --warn:#c7581c; --ok:#2e8a4a; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#161615; --fg:#ececea; --muted:#9a9a94; --card:#20201e; --line:#33332f; --accent:#6e9cf0; --warn:#e98a4f; --ok:#5fc27d; } }
+  * { box-sizing: border-box; }
+  body { margin:0; font:14px/1.45 system-ui, sans-serif; background:var(--bg); color:var(--fg); }
+  header { display:flex; gap:12px; align-items:center; padding:12px 16px; border-bottom:1px solid var(--line); }
+  header h1 { font-size:16px; margin:0 auto 0 0; }
+  main { display:grid; grid-template-columns: minmax(0,1fr) minmax(0,1fr); gap:16px; padding:16px; }
+  @media (max-width: 800px) { main { grid-template-columns: 1fr; } }
+  section { background:var(--card); border:1px solid var(--line); border-radius:8px; padding:12px; min-height:200px; }
+  h2 { font-size:13px; text-transform:uppercase; letter-spacing:.04em; color:var(--muted); margin:0 0 8px; }
+  .card { border:1px solid var(--line); border-left:3px solid var(--accent); border-radius:6px; padding:10px; margin-bottom:10px; }
+  .card.important { border-left-color: var(--warn); }
+  .card .q { font-weight:600; margin-bottom:6px; }
+  .row { display:flex; gap:6px; flex-wrap:wrap; margin-top:8px; }
+  button, select, textarea { font:inherit; color:inherit; background:var(--bg); border:1px solid var(--line); border-radius:6px; padding:6px 10px; }
+  button { cursor:pointer; } button:hover { border-color: var(--accent); }
+  textarea { width:100%; min-height:56px; }
+  #feed { font:12px/1.4 ui-monospace, monospace; max-height:70vh; overflow:auto; }
+  #feed div { border-bottom:1px solid var(--line); padding:4px 0; word-break: break-word; }
+  .tag { display:inline-block; min-width:92px; color:var(--muted); }
+  .delivered { color:var(--ok); } .hold-on { color:var(--warn); font-weight:600; }
+</style>
+</head>
+<body>
+<header>
+  <h1>LazyCop spike</h1>
+  <span id="status">connecting…</span>
+  <button id="hold">Hold Bob: off</button>
+</header>
+<main>
+  <section>
+    <h2>Cards from Bob</h2>
+    <div id="cards"><p style="color:var(--muted)">Waiting for Bob to call declare_step…</p></div>
+    <h2 style="margin-top:16px">Send a message to Bob</h2>
+    <textarea id="msg" placeholder="e.g. Coupons expire at the end of the customer's local day, not midnight UTC."></textarea>
+    <div class="row">
+      <select id="channel">
+        <option value="context">after next tool (PostToolUse context)</option>
+        <option value="block">block next tool (PreToolUse exit 2)</option>
+      </select>
+      <button id="send">Queue for Bob</button>
+    </div>
+  </section>
+  <section>
+    <h2>Live events</h2>
+    <div id="feed"></div>
+  </section>
+</main>
+<script>
+const $ = (id) => document.getElementById(id);
+let hold = false;
+const post = (path, body) => fetch(path, { method: "POST", headers: { "content-type": "application/json" }, body: JSON.stringify(body) });
+
+function feed(tag, text, cls = "") {
+  const d = document.createElement("div");
+  d.className = cls;
+  d.innerHTML = `<span class="tag"></span>`;
+  d.firstChild.textContent = tag;
+  d.append(text);
+  $("feed").prepend(d);
+}
+
+function card(args) {
+  const c = document.createElement("div");
+  c.className = "card" + (args.important ? " important" : "");
+  const q = document.createElement("div");
+  q.className = "q";
+  q.textContent = args.assumption ? `Bob assumes: ${args.assumption}. Do you?` : `Bob is about to: ${args.intent}. Is that what you want?`;
+  const meta = document.createElement("div");
+  meta.textContent = `${args.intent} — ${(args.files || []).join(", ")}`;
+  const row = document.createElement("div");
+  row.className = "row";
+  const yes = Object.assign(document.createElement("button"), { textContent: "Agree" });
+  const no = Object.assign(document.createElement("button"), { textContent: "Disagree / ask Bob" });
+  yes.onclick = () => { c.style.opacity = .5; row.remove(); };
+  no.onclick = () => { $("msg").value = `About "${args.assumption || args.intent}": `; $("msg").focus(); };
+  row.append(yes, no);
+  c.append(q, meta, row);
+  if ($("cards").querySelector("p")) $("cards").innerHTML = "";
+  $("cards").prepend(c);
+}
+
+$("send").onclick = async () => {
+  const text = $("msg").value.trim();
+  if (!text) return;
+  await post("/queue", { text, channel: $("channel").value });
+  $("msg").value = "";
+};
+$("hold").onclick = () => post("/hold", { on: !hold });
+
+const es = new EventSource("/stream");
+es.onopen = () => ($("status").textContent = "connected");
+es.onerror = () => ($("status").textContent = "disconnected");
+es.onmessage = (e) => {
+  const ev = JSON.parse(e.data);
+  if (ev.type === "state" || ev.type === "hold") {
+    hold = ev.type === "state" ? ev.hold : ev.on;
+    $("hold").textContent = `Hold Bob: ${hold ? "ON" : "off"}`;
+    $("hold").className = hold ? "hold-on" : "";
+  }
+  if (ev.type === "hook") {
+    const p = ev.payload;
+    const detail = p.tool_name ? `${p.tool_name} ${JSON.stringify(p.tool_input).slice(0, 160)}` : (p.source || p.prompt || p.last_assistant_message || "").toString().slice(0, 160);
+    feed(p.hook_event_name, detail);
+  }
+  if (ev.type === "mcp") {
+    feed(`mcp ${ev.tool}`, JSON.stringify(ev.args).slice(0, 200));
+    if (ev.tool === "declare_step") card(ev.args);
+    if (ev.tool === "reply_to_developer") feed("Bob replies", ev.args.text, "delivered");
+  }
+  if (ev.type === "queued") feed("queued", `${ev.text} [${ev.channel}]`);
+  if (ev.type === "delivered") feed("delivered", `${ev.id} via ${ev.via}`, "delivered");
+};
+</script>
+</body>
+</html>
