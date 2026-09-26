@@ -1,6 +1,6 @@
 # LazyCop — Two-Way Quiz Design
 
-Sep 26, 2026 · @Tran Phi Long NAVER VIETNAM
+Sep 26, 2026
 
 ## Summary
 
@@ -14,6 +14,8 @@ The quiz serves two goals with one mechanic:
 There is no answer key. A card verifies shared knowledge between Bob and the developer; when they differ, the developer asks Bob to clarify or corrects it.
 
 > Pitch: every disagreement is either something you learn or a mistake you catch before it costs more coins.
+
+LazyCop is a plugin the developer calls for a task, not an always-on monitor: installed once, dormant by default, and active only for the task it was invoked on.
 
 The spike on Bob IDE 2.2.0 confirmed the key technical bet: a correction sent from a browser page reaches Bob mid-task through MCP, and Bob changes its code accordingly.
 
@@ -87,12 +89,14 @@ Six card types cover the task from the first prompt to the final message. Each d
 | Assumption | `declare_step` states an assumption | `declare_step.assumption` | "Bob assumes `expiresAt` is a Date compared to now. Do you?" | Catching |
 | Predict the move | Bob declares an edit to a file | `declare_step.files` + real functions in that file | "Bob is heading to `coupon.js`. Which function will change?" | Understanding |
 | Read the hunk | An edit lands | PostToolUse unified patch | "This new line returns early when…? Bob says: the coupon is past `expiresOn`." | Understanding |
-| Hidden assumption | An edit or the final message implies a rule never declared | Diff + `Stop.last_assistant_message` | "Bob made coupons without an expiry date valid forever. Agree?" | Catching |
+| Hidden assumption | An edit decides a rule nobody asked about, or Bob ends the task on an unconfirmed assumption | The edit's patch, read by the card writer; `end_session.assumptions` | "Bob's change decides: a coupon without expiresOn never expires. Is that what you want?" | Catching |
 | Decision review | `declare_step.important` is true | `declare_step` | "Bob wants to add a date library instead of 3 lines. Agree?" | Both |
 
 The card mix leans toward understanding, about 60 to 40, but any card can become a catch when the developer picks a reading other than Bob's.
 
-Card text is written by the companion's LLM (Granite on watsonx.ai) from these sources. Facts that can be computed, such as which function a patch touches or which files import it, are computed rather than generated.
+Bob's claim is always Bob's own words, and so are the alternatives: `declare_step` carries up to three other readings a reasonable developer might have meant, so the card arrives complete and costs only a few extra tokens in a call Bob already makes. The card writer, Granite on watsonx.ai, is optional and independent of Bob: it fills in alternatives only when Bob gave none, and writes the hidden-assumption card after an edit, where a second opinion matters most because Bob would be judging his own change. Without watsonx credentials those are skipped and nothing else changes. Facts that can be computed, such as which function a patch touches, are computed rather than generated.
+
+**The final review.** Bob passes `end_session` every assumption the developer never confirmed. Each becomes a card, and Bob waits up to 45 s. If the developer disagrees with one, the session stays open and Bob gets the correction to fix before ending again. This is the last catch before the task closes.
 
 Hidden-assumption cards matter most for catching: in both coupon runs, the rule with the biggest product impact was never declared.
 
@@ -103,7 +107,7 @@ Bob waits for the developer only in proportion to the stakes: never for understa
 | Level | Triggered by | Bob's behaviour | Ends when |
 | --- | --- | --- | --- |
 | Flow | Predict, read-the-hunk, most cards | Keeps working; cards queue on the page | Card answered, skipped or stale |
-| Pause | `declare_step` with an assumption | `declare_step` waits up to 20 s for the card's answer | Answer arrives, or 20 s pass and Bob continues |
+| Pause | `declare_step` with an assumption | `declare_step` waits up to 30 s for the card's answer | Answer arrives, or 30 s pass and Bob continues |
 | Hold | `declare_step` with `important: true`, or the developer's Hold button | Edit tools blocked; Bob waits inside `check_in`, 45 s per call | Developer answers or releases, or 3 waits (about 2 min) pass |
 
 On a hold timeout, Bob is told to continue with its plan and name the assumption it relied on in its final message. That message then feeds a hidden-assumption card, so nothing is lost.
@@ -115,7 +119,25 @@ Rules that keep the game from becoming the per-action approval Bob users already
 - Stale cards drop out: a card about a step Bob has finished is archived, not shown.
 - Skipping is free, with no penalty.
 
-The numbers are starting points (20 s pause, 45 s per wait, 3 waits) to tune on practice runs. The 45 s wait stays under the 60 s default request timeout of Bob's MCP client.
+The numbers are starting points (30 s pause, 45 s per wait, 3 waits) to tune on practice runs; the pause started at 20 s and rose to 30 s after a first test took 23 s to answer a card. The 45 s wait stays under the 60 s default request timeout of Bob's MCP client.
+
+## Activation
+
+LazyCop is installed once, stays dormant, and becomes active only for a task the developer starts with it. Outside that task it watches nothing, blocks nothing and adds nothing to Bob's context.
+
+| Phase | How | What happens |
+| --- | --- | --- |
+| Install, once per workspace | `npx lazycop init` | Writes the plugin folder `.bob/plugins/lazycop/`: the LazyCop mode in `custom_modes.yaml` and the MCP server in `mcp.json`. Adds the hook entries to `.bob/settings.json`, because Bob plugins cannot carry hooks |
+| Dormant, the default | Nothing | Hooks see no active session and exit at once with no output. Nothing tells Bob to call LazyCop's tools. The only standing cost is the MCP tool descriptions Bob sends with each request |
+| Invoke | `/lazycop <task>`, or switch to the LazyCop mode and type the task | The mode tells Bob to call `start_session` first, then `declare_step` before every edit. `start_session` starts the server if needed, marks this task active and opens the page |
+| Active | The task runs, across all of its turns | Cards, pauses and holds apply only to hook events from the active task. Other Bob tasks are left alone |
+| End | Bob calls `end_session` when the task is done, the developer types `/lazycop off`, or leaves the mode | Unconfirmed assumptions get a final review; then the session closes, the page shows the wrap-up, and the hooks go dormant again |
+
+Three rules make this work:
+
+- **The `declare_step` rule lives in the LazyCop mode, not in `.bob/rules/`,** because rules there load for every task. The spike's `sandbox/.bob/rules/lazycop.md` is the always-on version this replaces.
+- **The session is bound through the hook, not the MCP call.** MCP calls do not carry Bob's `session_id`, but the PreToolUse hook for `mcp__lazycop__start_session` does, so the server activates that `session_id`.
+- **The developer never starts the server by hand.** Bob spawns the MCP process; it starts the local server on demand, or forwards to one already listening on the port.
 
 ## Architecture
 
@@ -137,7 +159,7 @@ Bob hears LazyCop only at its next tool call: a hook result or an MCP reply.
 ```
 
 - **Bob hooks** run a small command on each of the 7 events. The command posts the payload to the server and turns its answer into a block (PreToolUse exit 2) or a note beside the tool result (PostToolUse stdout). If the server is down, the hook exits 0 and Bob runs normally.
-- **Bob MCP calls** go to a stdio MCP server that forwards to the same local server, so hooks, MCP and the page share one state. `check_in` can wait on the server during a hold.
+- **Bob MCP calls** go to a stdio MCP server that Bob spawns. It starts the local server on demand, or forwards to one already running, so hooks, MCP and the page share one state. `check_in` can wait on the server during a hold.
 - **The LazyCop server** holds the event log, the card queue and the messages waiting for Bob. It writes everything to `.lazycop/` so a run can be replayed.
 - **The browser page** is only a view. It receives cards over server-sent events and posts answers back, so closing or reloading it loses nothing.
 
@@ -145,17 +167,19 @@ Everything runs on the developer's machine. The hosted web demo can only replay 
 
 ## Contracts
 
-Three MCP tools and four hook events carry the whole game. Everything else is internal to the server.
+Five MCP tools and four hook events carry the whole game. Everything else is internal to the server.
 
 **MCP tools** (server `lazycop`, auto-approved through `alwaysAllow` in `.bob/mcp.json`):
 
 | Tool | Bob calls it | Arguments | Returns |
 | --- | --- | --- | --- |
-| `declare_step` | Before every file edit | `intent`, `files`, optional `assumption`, optional `important` | Pending developer messages, or "Continue"; pauses or holds per Pacing |
+| `start_session` | First, when the developer invokes LazyCop | `task`: the developer's request | The page address and "LazyCop is watching this task" |
+| `declare_step` | Before every file edit | `intent`, `files`, optional `assumption`, `alternatives` and `important` | Pending developer messages, or "Continue"; pauses or holds per Pacing |
 | `check_in` | When told the developer is reviewing | `poll` (1, 2, 3… so calls are never identical) | Messages, "HOLD", or the timeout instruction |
 | `reply_to_developer` | After a disagreement or ask-why | `text` | "Delivered to the developer" |
+| `end_session` | When the task is done, or on `/lazycop off` | optional `assumptions`: what Bob relied on without confirmation | "LazyCop stopped watching", or the developer's objections to fix first |
 
-**Hooks** (command handlers in `.bob/settings.json`, 5 s timeout, fail open):
+**Hooks** (command handlers in `.bob/settings.json`, added by `npx lazycop init`, 5 s timeout, fail open, dormant outside an active session):
 
 | Event | LazyCop uses it to | Output to Bob |
 | --- | --- | --- |
@@ -182,7 +206,7 @@ These shapes are a proposal for the build. They should replace the spike's in-me
 
 ## Web app
 
-The page is a single screen: the current card in the centre, what Bob is doing on the right, and the files on the left. It opens with `npx lazycop start` at `http://127.0.0.1:4747`.
+The page is a single screen: the current card in the centre, what Bob is doing on the right, and the files on the left. It opens by itself when a session starts, at `http://127.0.0.1:4747`.
 
 ```
 ┌───────────────────────────────────────────────────────────┐
@@ -216,15 +240,18 @@ The design rests on one verified channel (MCP). The open items below are about c
 
 - [ ] What does `declare_step` cost per task? Run the coupon task with and without the rule and compare Bob's consumption summary.
 - [ ] Should holds and pauses exist at all for small tasks, or only above a size threshold?
+- [ ] Can a `/lazycop` command switch Bob into the LazyCop mode by itself? If not, the developer picks the mode, then types the task.
+- [ ] Does Bob's MCP client keep one MCP process per window? Decides whether two windows share one server or need their own port.
 - [ ] Do hooks fire in Plan mode? Needed if interpretation cards should appear before the gate.
 - [ ] Live test of the PreToolUse block and PostToolUse note channels (spike tests B and C).
-- [ ] Tune the pacing numbers (20 s pause, 45 s wait, 3 waits) on practice runs.
+- [ ] Tune the pacing numbers (30 s pause, 45 s wait, 3 waits) on practice runs.
 - [ ] Which LLM writes card text: Granite on watsonx.ai as the build spec plans, and within what per-run budget?
 
 Next steps, in order:
 
 1. Agree on this design with the team.
-2. Turn the spike page into the card flow: pause on assumptions, multiple-choice readings with Something else and Ask why, and replies shown on the card.
-3. Generate hidden-assumption and read-the-hunk cards from the patch and the Stop message.
-4. Add comprehension coverage and the change-tour export.
-5. Move from `spike/` into the TypeScript workspace the build spec describes, with the shared contract types.
+2. Engine sessions: `start_session` and `end_session`, dormant hooks outside the active task, and the MCP process starting the server.
+3. Plugin install: `npx lazycop init` writes `.bob/plugins/lazycop/` and the hook entries; the LazyCop mode carries the `declare_step` rule.
+4. The card flow on the page: multiple-choice readings, Something else, Ask why, a countdown, and Bob's replies.
+5. Hidden-assumption and read-the-hunk cards from the patch and the Stop message.
+6. Comprehension coverage and the change-tour export.

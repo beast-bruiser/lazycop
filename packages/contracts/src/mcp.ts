@@ -8,6 +8,8 @@ export interface DeclareStepInput {
   files: string[];
   /** The main assumption this edit relies on, if any. */
   assumption?: string;
+  /** Other readings a reasonable developer might have meant instead of the assumption; they become one-click options. */
+  alternatives?: string[];
   /**
    * True for decisions costly to undo: new dependency, schema or public API
    * change, deleting code. Triggers a hold.
@@ -22,6 +24,18 @@ export interface CheckInInput {
    * Ensures consecutive calls are never identical.
    */
   poll: number;
+}
+
+/** start_session — Bob calls this first when the developer invokes LazyCop. */
+export interface StartSessionInput {
+  /** The developer's request, in their words. */
+  task: string;
+}
+
+/** end_session — Bob calls this when the task is done, or on `/lazycop off`. */
+export interface EndSessionInput {
+  /** Assumptions Bob relied on that the developer never confirmed; each becomes a final card. */
+  assumptions?: string[];
 }
 
 /** reply_to_developer — Bob sends a reply after a disagreement or ask-why. */

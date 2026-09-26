@@ -16,7 +16,7 @@ exempt from PreToolUse blocks and PostToolUse delays. Blocking them would
 deadlock Bob mid-hold.
 
 **3. Every wait on the developer ends.**
-- A pause (declare_step with assumption) waits at most 20 s, then Bob continues.
+- A pause (declare_step with assumption) waits at most 30 s, then Bob continues.
 - A hold (declare_step with important: true, or the Hold button): each check_in
   waits at most 45 s, at most 3 waits per hold, then Bob is released automatically.
 - The 45 s per-wait ceiling stays under Bob's MCP client default request timeout
@@ -37,3 +37,10 @@ The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`,
 `ReplyToDeveloperInput`, hook payloads, and `.lazycop/` record kinds) are declared
 once in `packages/contracts` and imported everywhere; they are never re-declared
 in a surface package.
+
+**7. LazyCop is dormant unless the developer invokes it.**
+With no active session, hooks exit at once with no output and block nothing, and no
+rule tells Bob to call LazyCop's tools. A session starts only through `start_session`
+in a task the developer opened with `/lazycop` or the LazyCop mode; cards, pauses and
+holds apply only to hook events whose `session_id` is that session's. The
+`declare_step` rule lives in the LazyCop mode, never in always-loaded rules.

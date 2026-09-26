@@ -5,11 +5,21 @@
  */
 
 export type LazycopRecord =
+  | SessionRecord
   | EventRecord
   | CardRecord
   | AnswerRecord
   | MessageRecord
   | ReplyRecord;
+
+/** A LazyCop session started or ended. `id` is Bob's session_id when a hook bound it. */
+export interface SessionRecord {
+  kind: "session";
+  ts: string;
+  on: boolean;
+  id?: string;
+  task?: string;
+}
 
 /** A Bob tool call event logged from a hook. */
 export interface EventRecord {
@@ -88,6 +98,7 @@ export interface MessageRecord {
 /** Bob's reply to a developer message or ask-why. */
 export interface ReplyRecord {
   kind: "reply";
-  card: string;
+  /** The card being answered, when Bob's reply can be tied to one. */
+  card?: string;
   text: string;
 }

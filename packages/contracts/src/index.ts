@@ -1,4 +1,4 @@
-export type { DeclareStepInput, CheckInInput, ReplyToDeveloperInput } from "./mcp.js";
+export type { StartSessionInput, EndSessionInput, DeclareStepInput, CheckInInput, ReplyToDeveloperInput } from "./mcp.js";
 export type {
   HookEventName,
   HookPayloadBase,
@@ -13,6 +13,7 @@ export type {
 } from "./hooks.js";
 export type {
   LazycopRecord,
+  SessionRecord,
   EventRecord,
   CardRecord,
   CardOption,
@@ -22,3 +23,23 @@ export type {
   MessageRecord,
   ReplyRecord,
 } from "./records.js";
+export type {
+  SseEvent,
+  SseStateEvent,
+  SseSessionEvent,
+  SessionInfo,
+  SseHoldEvent,
+  SseHookEvent,
+  SseMcpEvent,
+  SseCardEvent,
+  SseAnswerEvent,
+  SseQueuedEvent,
+  SseDeliveredEvent,
+  SseReplyEvent,
+  SseWaitingEvent,
+  SseEventInput,
+  QueueBody,
+  HoldBody,
+  AnswerBody,
+  PendingMessage,
+} from "./api.js";

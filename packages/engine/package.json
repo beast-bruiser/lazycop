@@ -1,0 +1,26 @@
+{
+  "name": "@lazycops/engine",
+  "version": "0.0.1",
+  "private": true,
+  "type": "module",
+  "exports": {
+    ".": "./src/index.ts",
+    "./package.json": "./package.json"
+  },
+  "bin": {
+    "lazycop-engine": "dist/main.js",
+    "lazycop-hook": "dist/hook-script.js",
+    "lazycop-mcp": "dist/mcp-server.js"
+  },
+  "scripts": {
+    "build": "tsc --build",
+    "start": "tsc --build && node dist/main.js"
+  },
+  "dependencies": {
+    "@lazycops/contracts": "*",
+    "@lazycops/page": "*"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0"
+  }
+}

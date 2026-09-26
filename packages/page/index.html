@@ -1,0 +1,55 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LazyCop</title>
+<style>
+  :root { --bg:#f6f6f3; --fg:#1c1c1a; --muted:#6b6b66; --card:#fff; --line:#e1e1da; --accent:#2f62d8; --warn:#c2571a; --ok:#2d8547; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#151514; --fg:#ececea; --muted:#9a9a94; --card:#1f1f1d; --line:#33332f; --accent:#7aa2f5; --warn:#eb8c50; --ok:#64c380; } }
+  * { box-sizing: border-box; }
+  body { margin: 0; font: 15px/1.5 system-ui, sans-serif; background: var(--bg); color: var(--fg); }
+  header { display: flex; gap: 12px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  h1 { font-size: 17px; margin: 0; }
+  .task { margin: 0 auto 0 0; color: var(--muted); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 60ch; }
+  .status { font-size: 12px; padding: 2px 8px; border-radius: 99px; border: 1px solid var(--line); color: var(--muted); }
+  .status.watching { color: var(--ok); border-color: var(--ok); }
+  main { padding: 16px; max-width: 1100px; margin: 0 auto; }
+  .grid { display: grid; grid-template-columns: minmax(0, 2fr) minmax(0, 1fr); gap: 16px; }
+  @media (max-width: 760px) { .grid { grid-template-columns: 1fr; } }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 10px; padding: 14px 16px; margin-bottom: 12px; }
+  .card.current { border-left: 4px solid var(--accent); }
+  .card.waiting { border: 2px solid var(--warn); }
+  .card.waiting h2 { display: flex; justify-content: space-between; gap: 8px; }
+  .card.waiting .left { color: var(--warn); font-variant-numeric: tabular-nums; }
+  .card h2 { font-size: 17px; margin: 0 0 6px; }
+  .countdown { margin: 0 0 10px; color: var(--accent); font-size: 13px; }
+  .countdown.late { color: var(--muted); }
+  .options { display: grid; gap: 8px; }
+  button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; text-align: left; }
+  button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
+  kbd { font: 12px ui-monospace, monospace; border: 1px solid var(--line); border-radius: 4px; padding: 0 5px; margin-right: 6px; color: var(--muted); }
+  .hold.on { border-color: var(--warn); color: var(--warn); font-weight: 600; }
+  .inline, .compose { display: flex; gap: 8px; margin-top: 10px; align-items: center; flex-wrap: wrap; }
+  input[type="text"], input:not([type]) { flex: 1; min-width: 12ch; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
+  .compose { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; border-top: 1px solid var(--line); }
+  .compose label { font-size: 13px; color: var(--muted); }
+  .done .claim { margin: 0; font-weight: 600; }
+  .done .answer { margin: 2px 0 6px; color: var(--muted); }
+  .msg { margin: 4px 0; padding: 6px 10px; border-radius: 8px; background: var(--bg); }
+  .msg.bob b { color: var(--accent); } .msg.you b { color: var(--ok); }
+  aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 4px 0 8px; }
+  .feed { list-style: none; margin: 0 0 16px; padding: 0; font-size: 13px; max-height: 55vh; overflow: auto; }
+  .feed li { padding: 4px 0; border-bottom: 1px solid var(--line); word-break: break-word; }
+  .feed time { color: var(--muted); margin-right: 6px; font-variant-numeric: tabular-nums; }
+  .feed .edit { color: var(--warn); } .feed .reply { color: var(--accent); }
+  .notice { margin: 0; padding: 8px 16px; background: var(--warn); color: #fff; }
+  .hint, .idle p { color: var(--muted); }
+  code { font: 13px ui-monospace, monospace; }
+</style>
+</head>
+<body>
+<div id="app"></div>
+<script type="module" src="/app.js"></script>
+</body>
+</html>
