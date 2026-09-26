@@ -30,7 +30,9 @@ or reloading the page loses nothing. The page holds no authoritative state.
 The server listens on `127.0.0.1` only. Bob's HTTP hooks are not used because
 they require a trusted HTTPS endpoint; command hooks that call localhost are used
 instead. The only outbound traffic is the companion's call to its card-writing
-LLM (Granite on watsonx.ai); Bob-facing channels never leave localhost.
+LLM (Granite on watsonx.ai), and the page loading its art from the CDN URLs the
+developer sets in `packages/page/src/art-urls.ts` (image GETs only; nothing is sent).
+Bob-facing channels never leave localhost.
 
 **6. Contract types live only in the shared package.**
 The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`,
@@ -38,9 +40,14 @@ The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`,
 once in `packages/contracts` and imported everywhere; they are never re-declared
 in a surface package.
 
-**7. LazyCop is dormant unless the developer invokes it.**
+**7. LazyCop is dormant unless the developer invokes it, and each invoking chat is its own agent.**
 With no active session, hooks exit at once with no output and block nothing, and no
 rule tells Bob to call LazyCop's tools. A session starts only through `start_session`
-in a task the developer opened with `/lazycop` or the LazyCop mode; cards, pauses and
-holds apply only to hook events whose `session_id` is that session's. The
-`declare_step` rule lives in the LazyCop mode, never in always-loaded rules.
+in a task the developer opened with `/lazycop` or the LazyCop mode. Every Bob chat
+that does so is watched as a separate agent, keyed by its hook `session_id`, with its
+own cards, messages, hold and `.lazycop/` records; starting in one chat never ends
+another. Cards, pauses and holds apply only to hook events whose `session_id` is a
+watched agent's. MCP calls carry no `session_id`, so each is matched to the PreToolUse
+hook Bob fired for it; a chat without hooks is one "solo" agent. Bob subtasks and
+subagents share their root chat's `session_id` (Bob 2.2.0), so they act as that chat's
+agent. The `declare_step` rule lives in the LazyCop mode, never in always-loaded rules.

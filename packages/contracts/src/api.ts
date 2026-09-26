@@ -15,13 +15,35 @@ export interface SessionInfo {
   task: string;
 }
 
+/**
+ * One Bob chat LazyCop watches. Each chat that runs /lazycop is its own agent; `id` is its
+ * session_id, or "solo" when no hook bound the chat (hooks not installed).
+ */
+export interface AgentInfo {
+  id: string;
+  /** 1 for the first agent, 2 for the next…: the agent's call sign and colour on the page. */
+  n: number;
+  task: string;
+  /** false once the agent's task ended; it stays listed so the page can show how it went. */
+  watching: boolean;
+  hold: boolean;
+}
+
+/** Which agent an event came from. Absent on events that concern the whole page. */
+export interface FromAgent {
+  agent?: string;
+}
+
 /** Initial state snapshot sent on SSE connect. */
 export interface SseStateEvent {
   type: "state";
   at: string;
-  /** null while LazyCop is dormant. */
+  /** The most recently started agent that is still watched; null while LazyCop is dormant. */
   session: SessionInfo | null;
+  /** true when any agent is on hold. */
   hold: boolean;
+  /** Every agent since LazyCop last went dormant, in the order they started. Absent means one agent, as before. */
+  agents?: AgentInfo[];
   pending: PendingMessage[];
   /** Every event of the current (or last) session, oldest first; the page rebuilds itself from it. */
   history: SseEvent[];
@@ -117,16 +139,18 @@ export interface SseReplyEvent {
 
 export type SseEvent =
   | SseStateEvent
-  | SseSessionEvent
-  | SseHoldEvent
-  | SseHookEvent
-  | SseMcpEvent
-  | SseCardEvent
-  | SseAnswerEvent
-  | SseQueuedEvent
-  | SseDeliveredEvent
-  | SseReplyEvent
-  | SseWaitingEvent;
+  | ((
+      | SseSessionEvent
+      | SseHoldEvent
+      | SseHookEvent
+      | SseMcpEvent
+      | SseCardEvent
+      | SseAnswerEvent
+      | SseQueuedEvent
+      | SseDeliveredEvent
+      | SseReplyEvent
+      | SseWaitingEvent
+    ) & FromAgent);
 
 /** An SSE event before the server stamps its `at` time. */
 export type SseEventInput = SseEvent extends infer E ? (E extends SseEvent ? Omit<E, "at"> : never) : never;
@@ -141,11 +165,15 @@ export interface QueueBody {
   channel?: "block" | "context";
   /** Set when the developer answers Bob on a card's thread. */
   card?: string;
+  /** The agent to send it to; the card's agent when `card` is set, else the most recently active one. */
+  agent?: string;
 }
 
 /** Body for POST /hold — developer toggles the hold. */
 export interface HoldBody {
   on: boolean;
+  /** The agent to hold or release; every watched agent when absent. */
+  agent?: string;
 }
 
 /** Body for POST /answer — developer answers a card. */

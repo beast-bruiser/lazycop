@@ -1,0 +1,11 @@
+{"kind":"goal","title":"Page art from CDN URLs with local fallback","at":"2026-09-26T16:13Z"}
+{"kind":"state","s":1,"at":"2026-09-26T16:13Z","outcome":"The page loads its art only from packages/page/assets, and the local PNGs are tracked by git.","truth":"head","plane":"panel"}
+{"kind":"state","s":2,"at":"2026-09-26T16:13Z","outcome":"Every image slot the page uses has one place to set a CDN URL, and a slot left empty uses the local file.","plane":"panel","forbid":["no build step, bundler or env loader added — the page stays plain tsc output served by the engine"]}
+{"kind":"state","s":3,"at":"2026-09-26T16:13Z","outcome":"An image the CDN cannot serve with CORS falls back to the local file, then to the built-in art.","plane":"panel"}
+{"kind":"state","s":4,"at":"2026-09-26T16:13Z","outcome":"Local PNGs in packages/page/assets are ignored by git while staying on disk as the fallback.","plane":"panel"}
+{"kind":"state","s":5,"at":"2026-09-26T16:13Z","outcome":"Invariant 5 allows the page to load art from CDN URLs the developer configures, and nothing else leaves localhost.","plane":"engine"}
+{"kind":"reached","s":2,"at":"2026-09-26T16:15Z","evidence":"packages/page/src/art-urls.ts holds one URL per slot (map, soldier, unit, portrait); AssetName is derived from it, so the loader cannot use an unregistered slot; art-urls test checks the list and that an empty slot uses /assets/<slot>.png"}
+{"kind":"reached","s":3,"at":"2026-09-26T16:15Z","evidence":"headless Chrome with map=https://cdn.invalid/... logged the fallback warning and loaded /assets/map.png; soldier from a CORS server on :4800 loaded and getImageData on it succeeded (recolouring works)"}
+{"kind":"reached","s":4,"at":"2026-09-26T16:15Z","evidence":".gitignore ignores packages/page/assets/*.png and assets/source/; git status shows only assets/README.md; the files stay on disk and :4747 still serves /assets/map.png (200)"}
+{"kind":"reached","s":5,"at":"2026-09-26T16:15Z","evidence":"Invariant 5 edited in place: outbound traffic is the card-writer LLM plus image GETs to the CDN URLs set in art-urls.ts"}
+{"kind":"closed","at":"2026-09-26T16:15Z","disposition":"Shipped: art-urls.ts registry (CDN URL -> local assets/<slot>.png -> built-in art) with CORS-aware loading and a console warning on fallback; local PNGs git-ignored; Invariant 5 updated."}

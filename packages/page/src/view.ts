@@ -6,6 +6,10 @@ export interface CardView {
   /** When Bob stops waiting on this card, if it paused. */
   waitUntil?: string;
   answer?: AnswerRecord;
+  /** How many trail stops Bob had made when the card arrived; the card stands where he was. */
+  trailAt: number;
+  /** When the card arrived. */
+  at: string;
   /** Bob's replies and the developer's follow-ups on this card, in order. */
   thread: { from: "bob" | "you"; text: string }[];
 }
@@ -14,6 +18,14 @@ export interface FeedItem {
   at: string;
   kind: "step" | "read" | "edit" | "reply" | "you" | "hold" | "session";
   text: string;
+}
+
+/** One place Bob went: a file he read, searched or edited, or a shell command (no path). */
+export interface TrailStop {
+  at: string;
+  kind: "read" | "search" | "edit" | "command";
+  /** Relative to the watched repo when Bob gave an absolute path; null for a command. */
+  path: string | null;
 }
 
 export interface ViewState {
@@ -28,12 +40,29 @@ export interface ViewState {
   feed: FeedItem[];
   filesRead: string[];
   filesEdited: string[];
+  trail: TrailStop[];
 }
 
 export const EDIT_TOOLS = ["apply_diff", "write_file", "search_and_replace", "insert_content"];
 
+export const READ_TOOLS = ["read_file", "list_code_definition_names"];
+export const SEARCH_TOOLS = ["search_files", "list_files", "codebase_search"];
+export const COMMAND_TOOLS = ["execute_command"];
+
+function toolKind(tool: string): TrailStop["kind"] | null {
+  if (EDIT_TOOLS.includes(tool)) return "edit";
+  if (READ_TOOLS.includes(tool)) return "read";
+  if (SEARCH_TOOLS.includes(tool)) return "search";
+  return COMMAND_TOOLS.includes(tool) ? "command" : null;
+}
+
+function relative(path: string, cwd: string): string {
+  const root = cwd.replace(/\/+$/, "");
+  return root && path.startsWith(`${root}/`) ? path.slice(root.length + 1) : path;
+}
+
 export const emptyView = (): ViewState => ({
-  connected: false, task: null, ended: false, hold: false, waiting: null, cards: [], feed: [], filesRead: [], filesEdited: [],
+  connected: false, task: null, ended: false, hold: false, waiting: null, cards: [], feed: [], filesRead: [], filesEdited: [], trail: [],
 });
 
 /** Rebuilds the whole view from the server's snapshot: the page keeps no state of its own. */
@@ -68,7 +97,7 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
       const known = view.cards.find((c) => c.card.id === event.card.id);
       return known
         ? { ...view, cards: view.cards.map((c) => (c === known ? { ...c, card: event.card, waitUntil: event.waitUntil ?? c.waitUntil } : c)) }
-        : { ...view, cards: [...view.cards, { card: event.card, waitUntil: event.waitUntil, thread: [] }] };
+        : { ...view, cards: [...view.cards, { card: event.card, waitUntil: event.waitUntil, thread: [], trailAt: view.trail.length, at: event.at }] };
     }
     case "answer":
       return { ...view, cards: view.cards.map((c) => (c.card.id === event.answer.card ? { ...c, answer: event.answer } : c)) };
@@ -91,11 +120,13 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
     case "hook": {
       const p = event.payload;
       if (p.hook_event_name !== "PostToolUse" || p.tool_name.startsWith("mcp__lazycop__")) return view;
+      const kind = toolKind(p.tool_name);
       const path = pathOf(p.tool_input);
-      if (!path) return view;
-      if (EDIT_TOOLS.includes(p.tool_name)) return { ...view, filesEdited: addOnce(view.filesEdited, path), feed: feed("edit", path) };
-      if (p.tool_name === "read_file") return { ...view, filesRead: addOnce(view.filesRead, path), feed: feed("read", path) };
-      return view;
+      if (!kind || (kind !== "command" && !path)) return view;
+      const trail = [...view.trail, { at: event.at, kind, path: path ? relative(path, p.cwd) : null }];
+      if (kind === "edit") return { ...view, trail, filesEdited: addOnce(view.filesEdited, path!), feed: feed("edit", path!) };
+      if (p.tool_name === "read_file") return { ...view, trail, filesRead: addOnce(view.filesRead, path!), feed: feed("read", path!) };
+      return { ...view, trail };
     }
     default:
       return view;
@@ -125,4 +156,12 @@ export function summary(view: ViewState) {
     unanswered: view.cards.length - answered.length,
     filesEdited: view.filesEdited,
   };
+}
+
+/** Health lost each time the developer corrects one of Bob's assumptions. */
+export const HIT = 20;
+
+/** Bob's health, 0–100: agreeing or asking why costs nothing, a correction costs HIT. */
+export function health(view: ViewState): number {
+  return Math.max(0, 100 - HIT * summary(view).corrected);
 }

@@ -28,6 +28,8 @@ export type {
   SseStateEvent,
   SseSessionEvent,
   SessionInfo,
+  AgentInfo,
+  FromAgent,
   SseHoldEvent,
   SseHookEvent,
   SseMcpEvent,

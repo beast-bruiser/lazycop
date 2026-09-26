@@ -4,13 +4,12 @@ import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
 import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
-import type { HookPayload, QueueBody, HoldBody, AnswerBody, SseEvent, SseEventInput, SseStateEvent, PendingMessage } from "@lazycops/contracts";
-import { createStore, setHold, wake, isWatched } from "./store.js";
-import { onHook } from "./hook.js";
-import { onMcp, pageUrl } from "./mcp.js";
-import { recordAnswer, reviewEdit } from "./review.js";
+import type { HookPayload, SseEvent, SseEventInput, SseStateEvent } from "@lazycops/contracts";
+import { pageUrl } from "./mcp.js";
+import { agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, tagged, watching, withRecords } from "./squad.js";
+import { reviewEdit } from "./review.js";
 import { loadEnvFile } from "./env.js";
-import { resolveCard } from "./cards.js";
+import { onDeveloper } from "./developer.js";
 
 const PORT = Number(process.env.LAZYCOP_PORT ?? 4747);
 
@@ -33,15 +32,27 @@ function servePage(res: http.ServerResponse, path: string): void {
   }
 }
 
-const store = createStore();
+/** Optional art the developer drops into packages/page/assets; the page falls back to its own when absent. */
+function serveAsset(res: http.ServerResponse, path: string): void {
+  try {
+    const body = readFileSync(join(pageDir, path.slice(1)));
+    res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" });
+    res.end(body);
+  } catch {
+    res.writeHead(404, { "content-type": "text/plain" });
+    res.end("not found");
+  }
+}
+
+const squad = createSquad();
 const clients = new Set<http.ServerResponse>();
 
-const HISTORY_LIMIT = 500;
+const HISTORY_LIMIT = 1500;
 
 function push(input: SseEventInput): void {
-  const event: SseEvent = { ...input, at: new Date().toISOString() };
-  store.history.push(event);
-  if (store.history.length > HISTORY_LIMIT) store.history.splice(0, store.history.length - HISTORY_LIMIT);
+  const event = { ...input, at: new Date().toISOString() } as SseEvent;
+  squad.history.push(event);
+  if (squad.history.length > HISTORY_LIMIT) squad.history.splice(0, squad.history.length - HISTORY_LIMIT);
   const line = `data: ${JSON.stringify(event)}\n\n`;
   for (const res of clients) res.write(line);
 }
@@ -82,6 +93,10 @@ export function createServer(): http.Server {
     if (req.method === "GET" && (url.pathname === "/" || /^\/[a-z-]+\.js$/.test(url.pathname))) {
       return servePage(res, url.pathname);
     }
+    // Only kebab-case .png files directly in assets/: the pattern leaves no room for another path.
+    if (req.method === "GET" && /^\/assets\/[a-z-]+\.png$/.test(url.pathname)) {
+      return serveAsset(res, url.pathname);
+    }
 
     if (req.method === "GET" && url.pathname === "/stream") {
       res.writeHead(200, {
@@ -89,13 +104,15 @@ export function createServer(): http.Server {
         "cache-control": "no-cache",
         connection: "keep-alive",
       });
+      const current = latest(squad);
       const snapshot: SseStateEvent = {
         type: "state",
         at: new Date().toISOString(),
-        session: store.session ? { task: store.session.task } : null,
-        hold: store.hold,
-        pending: [...store.pending],
-        history: [...store.history],
+        session: current ? { task: current.task } : null,
+        hold: watching(squad).some((a) => a.store.hold),
+        agents: agentsInfo(squad),
+        pending: watching(squad).flatMap((a) => a.store.pending),
+        history: [...squad.history],
       };
       res.write(`data: ${JSON.stringify(snapshot)}\n\n`);
       clients.add(res);
@@ -111,71 +128,26 @@ export function createServer(): http.Server {
     switch (url.pathname) {
       case "/hook": {
         const payload = body as HookPayload;
-        const result = onHook(store, payload);
+        const { agent, result } = routeHook(squad, payload);
         // The page only uses what happened, so tools are shown once, after they run.
-        if (isWatched(store, payload.session_id) && payload.hook_event_name !== "PreToolUse") {
-          push({ type: "hook", seq: ++store.seq, payload });
-          void reviewEdit(store, payload, push);
+        if (agent && isWatching(agent) && payload.hook_event_name !== "PreToolUse") {
+          const send = tagged(push, agent);
+          send({ type: "hook", seq: ++squad.seq, payload });
+          void withRecords(agent, () => reviewEdit(agent.store, payload, send));
         }
         return json(res, result);
       }
       case "/mcp": {
         const { tool, args } = body as { tool: string; args: Record<string, unknown> };
-        const text = await onMcp(store, tool, args ?? {}, push);
+        const text = await runMcp(squad, tool, args ?? {}, push);
         if (tool === "start_session") openPage();
         return json(res, { text });
       }
-      case "/queue": {
-        if (!store.session) return json(res, { error: "LazyCop is not watching a task" }, 409);
-        const q = body as QueueBody;
-        if (typeof q.text !== "string" || !q.text.trim()) {
-          return json(res, { error: "text required" }, 400);
-        }
-        const msg: PendingMessage = {
-          id: `m-${Date.now()}`,
-          text: q.text.trim(),
-          channel: q.channel === "block" ? "block" : "context",
-          ...(typeof q.card === "string" ? { card: q.card } : {}),
-        };
-        store.pending.push(msg);
-        push({ type: "queued", id: msg.id, text: msg.text, channel: msg.channel, ...(msg.card ? { card: msg.card } : {}) });
-        wake(store);
-        return json(res, msg);
-      }
-      case "/hold": {
-        if (!store.session) return json(res, { error: "LazyCop is not watching a task" }, 409);
-        const h = body as HoldBody;
-        setHold(store, Boolean(h.on));
-        push({ type: "hold", on: store.hold, reason: "developer" });
-        return json(res, { hold: store.hold });
-      }
+      case "/queue":
+      case "/hold":
       case "/answer": {
-        const a = body as AnswerBody;
-        if (!a.card || !a.pick) return json(res, { error: "card and pick required" }, 400);
-        const card = store.cards.get(a.card);
-        if (!card) return json(res, { error: "card not found" }, 404);
-        const answer = {
-          kind: "answer" as const,
-          card: a.card,
-          pick: a.pick,
-          text: a.text,
-        };
-        push({ type: "answer", answer });
-        const endsHold = store.hold && store.holdCard === card.id;
-        if (!resolveCard(a.card, answer)) {
-          // The pause is over: queue the answer so Bob gets it at its next tool call.
-          recordAnswer(store, card, answer, "block");
-          for (const m of store.pending.filter((p) => p.card === card.id)) {
-            push({ type: "queued", id: m.id, text: m.text, channel: m.channel, card: card.id, fromAnswer: true });
-          }
-          wake(store);
-        }
-        // Answering the decision Bob is held on is the review it was waiting for, whatever the answer.
-        if (endsHold) {
-          setHold(store, false);
-          push({ type: "hold", on: false, reason: "answered" });
-        }
-        return json(res, { ok: true });
+        const [status, reply] = onDeveloper(squad, url.pathname, body, push);
+        return json(res, reply, status);
       }
       default:
         return json(res, { error: "not found" }, 404);

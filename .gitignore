@@ -4,3 +4,9 @@ node_modules/
 
 dist/
 *.tsbuildinfo
+
+# Page art: the CDN URLs in packages/page/src/art-urls.ts are the source of truth.
+# Local copies stay on disk as the fallback; the README with specs and prompts is tracked.
+packages/page/assets/*.png
+packages/page/assets/source/
+docs/image

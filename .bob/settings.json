@@ -3,7 +3,57 @@
     "SessionStart": [
       {
         "hooks": [
-          { "type": "command", "command": "bash .bob/hooks/inject-goal-state.sh", "timeout": 10 }
+          {
+            "type": "command",
+            "command": "bash .bob/hooks/inject-goal-state.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
+    "PreToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "PostToolUse": [
+      {
+        "matcher": "*",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "UserPromptSubmit": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "timeout": 5
+          }
+        ]
+      }
+    ],
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "timeout": 5
+          }
         ]
       }
     ]

@@ -1,0 +1,17 @@
+{
+  "mcpServers": {
+    "lazycop": {
+      "command": "node",
+      "args": [
+        "/Users/truongvinh/lazycop/packages/engine/dist/mcp-server.js"
+      ],
+      "alwaysAllow": [
+        "start_session",
+        "declare_step",
+        "check_in",
+        "reply_to_developer",
+        "end_session"
+      ]
+    }
+  }
+}
