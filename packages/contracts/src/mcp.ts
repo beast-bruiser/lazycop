@@ -36,6 +36,8 @@ export interface StartSessionInput {
 export interface EndSessionInput {
   /** Assumptions Bob relied on that the developer never confirmed; each becomes a final card. */
   assumptions?: string[];
+  /** true on `/lazycop off`: stop at once, with no final review. */
+  stop?: boolean;
 }
 
 /** reply_to_developer — Bob sends a reply after a disagreement or ask-why. */

@@ -14,6 +14,7 @@ const QUESTIONS: Record<string, (claim: string) => string> = {
   declare_step: (c) => `Bob assumes: ${c}. Is that right?`,
   diff: (c) => `Bob's change decides: ${c}. Is that what you want?`,
   end_session: (c) => `Bob relied on this without asking you: ${c}. Is that right?`,
+  confirm: (c) => `Bob now reads your correction as: ${c}. Is that what you meant?`,
 };
 
 const tidy = (text: string) => text.trim().replace(/[.\s]+$/, "");
@@ -67,7 +68,14 @@ export function recordAnswer(store: StoreState, card: CardRecord, answer: Answer
   appendRecord(answer);
   store.cards.delete(card.id);
   const text = answerToMessage(card, answer);
-  if (text) store.pending.push({ id: `m-${Date.now()}-${card.id}`, text, channel, card: card.id });
+  const correction = answer.pick !== "bob" && answer.pick !== "ask_why";
+  if (text) store.pending.push({ id: `m-${Date.now()}-${card.id}`, text, channel, card: card.id, ...(correction ? { correction } : {}) });
+}
+
+/** Called when a message reaches Bob: a correction makes his next assumption card a confirmation. */
+export function noteDelivered(store: StoreState, message: { card?: string; correction?: boolean }): void {
+  if (message.card) store.lastMessageCard = message.card;
+  if (message.card && message.correction) store.confirmFor = message.card;
 }
 
 /** Shows a card now, then adds the writer's alternative readings if they arrive while it is still open. */
@@ -98,7 +106,7 @@ export async function reviewEdit(store: StoreState, payload: HookPayload, push: 
  * Turns the assumptions Bob relied on without asking into cards and waits for them, so a wrong
  * one is caught before the task closes. Returns the developer's objections, if any.
  */
-export async function reviewBeforeEnd(store: StoreState, assumptions: string[], waitMs: number, push: Push): Promise<{ card: string; text: string }[]> {
+export async function reviewBeforeEnd(store: StoreState, assumptions: string[], waitMs: number, push: Push): Promise<{ card: string; text: string; correction: boolean }[]> {
   const cards = assumptions.map((a) => makeCard(a, "hidden_assumption", "end_session"));
   const waitUntil = new Date(Date.now() + waitMs).toISOString();
   for (const card of cards) {
@@ -107,14 +115,14 @@ export async function reviewBeforeEnd(store: StoreState, assumptions: string[], 
     push({ type: "card", card, waitUntil });
   }
   const answers = await Promise.all(cards.map((c) => waitForAnswer(c.id, waitMs)));
-  const objections: { card: string; text: string }[] = [];
+  const objections: { card: string; text: string; correction: boolean }[] = [];
   cards.forEach((card, i) => {
     const answer = answers[i];
     if (!answer) return;
     appendRecord(answer);
     store.cards.delete(card.id);
     const text = answerToMessage(card, answer);
-    if (text) objections.push({ card: card.id, text });
+    if (text) objections.push({ card: card.id, text, correction: answer.pick !== "ask_why" });
   });
   return objections;
 }

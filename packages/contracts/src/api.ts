@@ -41,6 +41,8 @@ export interface SseHoldEvent {
   at: string;
   on: boolean;
   reason: string;
+  /** The card whose decision Bob is held on; absent for the developer's own Hold. */
+  card?: string;
 }
 
 /** A Bob hook event arrived. */
@@ -164,4 +166,6 @@ export interface PendingMessage {
   channel: "block" | "context";
   /** The card this message answers; absent for free-text and Hold messages. */
   card?: string;
+  /** true when the message corrects Bob's reading, so his next assumption should restate it. */
+  correction?: boolean;
 }

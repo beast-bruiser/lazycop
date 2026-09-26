@@ -34,7 +34,8 @@ const tools = [
     inputSchema: {
       type: "object",
       properties: {
-        assumptions: { type: "array", items: { type: "string" }, description: "Assumptions you relied on without the developer confirming them. Empty on /lazycop off." },
+        assumptions: { type: "array", items: { type: "string" }, description: "Assumptions you relied on without the developer confirming them." },
+        stop: { type: "boolean", description: "true when the developer typed /lazycop off: stop at once, with no final review." },
       },
     },
   },

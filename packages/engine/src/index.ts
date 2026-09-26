@@ -1,6 +1,6 @@
 export { createServer, startServer } from "./server.js";
 export { onHook } from "./hook.js";
-export { onMcp, pageUrl, PAUSE_MS, HOLD_WAIT_MS, MAX_HOLD_POLLS } from "./mcp.js";
+export { onMcp, pageUrl, HOLD_WAIT_MS, MAX_HOLD_POLLS } from "./mcp.js";
 export { makeCard, recordAnswer, answerToMessage, addAlternatives, reviewEdit, reviewBeforeEnd, EDIT_TOOLS } from "./review.js";
 export { cardWriter, setCardWriter, parseList } from "./writer.js";
 export type { CardWriter } from "./writer.js";

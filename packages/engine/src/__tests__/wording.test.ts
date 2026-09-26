@@ -1,74 +1,55 @@
-import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
+import { describe, it, expect, vi } from "vitest";
+import type { CardRecord, HookPayload } from "@lazycops/contracts";
 import { watchedStore } from "./helpers.js";
-import { onMcp, PAUSE_MS } from "../mcp.js";
-import { resolveCard } from "../cards.js";
+import { onMcp } from "../mcp.js";
+import { onHook } from "../hook.js";
+import { recordAnswer } from "../review.js";
 
-describe("answer → message wording (Core mechanic table)", () => {
-  beforeEach(() => vi.useFakeTimers());
-  afterEach(() => vi.useRealTimers());
+const nextEdit: HookPayload = { hook_event_name: "PreToolUse", session_id: "s-1", cwd: ".", tool_name: "apply_diff", tool_input: {}, tool_use_id: "t" };
 
-  async function runDeclareAndAnswer(
-    pick: string,
-    text?: string,
-  ): Promise<string> {
+/** Bob declares and moves on at once; the developer answers later; Bob's next action carries it. */
+async function answerAfterBobMovedOn(pick: string, text?: string) {
+  const store = watchedStore();
+  const cards: CardRecord[] = [];
+  const result = await onMcp(store, "declare_step",
+    { intent: "add check", files: ["coupon.js"], assumption: "expiresAt is a Date compared to now" },
+    (e) => { if (e.type === "card") cards.push(e.card); });
+  recordAnswer(store, cards[0]!, { kind: "answer", card: cards[0]!.id, pick, ...(text ? { text } : {}) }, "block");
+  return { result, next: onHook(store, nextEdit).block };
+}
+
+describe("cards run alongside Bob: the answer reaches him at his next step", () => {
+  it("declare_step never waits for the developer", async () => {
+    vi.useFakeTimers();
     const store = watchedStore();
-    const push = vi.fn();
+    let done = false;
+    void onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, vi.fn()).then(() => (done = true));
+    await vi.advanceTimersByTimeAsync(0);
+    expect(done).toBe(true);
+    vi.useRealTimers();
+  });
 
-    const mcpPromise = onMcp(
-      store,
-      "declare_step",
-      { intent: "add check", files: ["coupon.js"], assumption: "expiresAt is a Date compared to now" },
-      push,
-    );
-
-    // Find the card that was created
-    await Promise.resolve(); // flush microtasks
-    const cardId = [...store.cards.keys()][0];
-    expect(cardId).toBeDefined();
-
-    resolveCard(cardId!, { kind: "answer", card: cardId!, pick, text });
-
-    return mcpPromise;
-  }
-
-  it("bob (agree) → Bob receives 'No messages. Continue.'", async () => {
-    const result = await runDeclareAndAnswer("bob");
+  it("bob (agree) sends Bob nothing", async () => {
+    const { result, next } = await answerAfterBobMovedOn("bob");
     expect(result).toBe("No messages. Continue.");
+    expect(next).toBeUndefined();
   });
 
-  it("other (something else with typed text) → message contains claim and typed expectation", async () => {
-    const result = await runDeclareAndAnswer("other", "End of local day in customer timezone");
-    expect(result).toContain("disagrees with: expiresAt is a Date compared to now");
-    expect(result).toContain("End of local day in customer timezone");
-    expect(result).toContain("Reply, then adjust.");
+  it("other (typed) → Bob's next action is stopped with the claim and the developer's words", async () => {
+    const { next } = await answerAfterBobMovedOn("other", "End of local day in customer timezone");
+    expect(next).toContain("disagrees with: expiresAt is a Date compared to now");
+    expect(next).toContain("End of local day in customer timezone");
+    expect(next).toContain("Reply, then adjust.");
   });
 
-  it("ask_why → message asks Bob to explain before editing", async () => {
-    const result = await runDeclareAndAnswer("ask_why");
-    expect(result).toContain("asks why: expiresAt is a Date compared to now");
-    expect(result).toContain("reply_to_developer");
-    expect(result).toContain("before editing");
+  it("ask_why → Bob explains before editing", async () => {
+    const { next } = await answerAfterBobMovedOn("ask_why");
+    expect(next).toContain("asks why: expiresAt is a Date compared to now");
+    expect(next).toContain("before editing");
   });
 
-  it("alt id (disagree, chose an option) → message contains claim and option text", async () => {
-    const result = await runDeclareAndAnswer("alt-1", "End of the expiry day in the customer's timezone");
-    expect(result).toContain("disagrees with: expiresAt is a Date compared to now");
-    expect(result).toContain("End of the expiry day in the customer's timezone");
-  });
-
-  it("pause timeout (no answer in 20 s) → Bob continues normally", async () => {
-    const store = watchedStore();
-    const push = vi.fn();
-
-    const mcpPromise = onMcp(
-      store,
-      "declare_step",
-      { intent: "add check", files: ["coupon.js"], assumption: "expiresAt is a Date" },
-      push,
-    );
-
-    await vi.advanceTimersByTimeAsync(PAUSE_MS + 10);
-    const result = await mcpPromise;
-    expect(result).toBe("No messages. Continue.");
+  it("alt id (chose an option) → the option's text is the expectation", async () => {
+    const { next } = await answerAfterBobMovedOn("alt-1", "End of the expiry day in the customer's timezone");
+    expect(next).toContain("End of the expiry day in the customer's timezone");
   });
 });

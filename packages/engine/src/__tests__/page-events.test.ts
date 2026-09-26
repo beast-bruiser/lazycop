@@ -1,27 +1,18 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { SseEventInput } from "@lazycops/contracts";
 import { watchedStore } from "./helpers.js";
-import { onMcp, PAUSE_MS } from "../mcp.js";
+import { onMcp } from "../mcp.js";
 import { startSession } from "../session.js";
 
 describe("events the page relies on", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("a card Bob pauses on carries when the pause ends; one it does not pause on does not", async () => {
+  it("an assumption card never carries a countdown: Bob does not wait for it", async () => {
     const events: SseEventInput[] = [];
-    const store = watchedStore();
-    const paused = onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
-    const first = events.find((e) => e.type === "card");
-    expect(first && "waitUntil" in first && first.waitUntil).toBe(new Date(Date.now() + PAUSE_MS).toISOString());
-    await vi.advanceTimersByTimeAsync(PAUSE_MS + 10);
-    await paused;
-
-    events.length = 0;
-    store.pending.push({ id: "m-1", text: "note", channel: "context" });
-    await onMcp(store, "declare_step", { intent: "y", files: ["a"], assumption: "A2" }, (e) => events.push(e));
-    const second = events.find((e) => e.type === "card");
-    expect(second && "waitUntil" in second ? second.waitUntil : undefined).toBeUndefined();
+    await onMcp(watchedStore(), "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
+    const card = events.find((e) => e.type === "card");
+    expect(card && "waitUntil" in card ? card.waitUntil : undefined).toBeUndefined();
   });
 
   it("Bob's reply is attached to the card behind the message it answers", async () => {

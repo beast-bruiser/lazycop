@@ -25,6 +25,8 @@
   .card h2 { font-size: 17px; margin: 0 0 6px; }
   .countdown { margin: 0 0 10px; color: var(--accent); font-size: 13px; }
   .countdown.late { color: var(--muted); }
+  .countdown.hold { color: var(--warn); font-weight: 600; }
+  .notice.hold { background: transparent; color: var(--warn); border-bottom: 1px solid var(--warn); }
   .options { display: grid; gap: 8px; }
   button { font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 12px; cursor: pointer; text-align: left; }
   button:hover, button:focus-visible { border-color: var(--accent); outline: none; }
@@ -34,8 +36,18 @@
   input[type="text"], input:not([type]) { flex: 1; min-width: 12ch; font: inherit; color: inherit; background: var(--bg); border: 1px solid var(--line); border-radius: 8px; padding: 8px 10px; }
   .compose { position: sticky; bottom: 0; background: var(--bg); padding: 12px 0; border-top: 1px solid var(--line); }
   .compose label { font-size: 13px; color: var(--muted); }
-  .done .claim { margin: 0; font-weight: 600; }
-  .done .answer { margin: 2px 0 6px; color: var(--muted); }
+  .chip { display: inline-block; margin: 0 0 6px; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  .card.current .chip { color: var(--accent); }
+  .card.source-confirm { border-left-color: var(--ok); }
+  .card.source-end_session { border-left-color: var(--warn); }
+  .about { margin: 0 0 6px; color: var(--muted); font-size: 14px; }
+  .exchange { padding: 8px 12px; margin: 0 0 8px; border-radius: 8px; background: var(--card); border: 1px dashed var(--line); font-size: 14px; }
+  .exchange .line { margin: 0; color: var(--muted); }
+  .exchange .line .chip { margin: 0 4px 0 0; }
+  .exchange .tick { color: var(--ok); font-weight: 700; }
+  .exchange .answer { margin: 2px 0 4px; font-weight: 600; }
+  .exchange:not(.latest) { opacity: .8; }
+  .earlier summary { cursor: pointer; color: var(--muted); font-size: 13px; margin: 4px 0 8px; }
   .msg { margin: 4px 0; padding: 6px 10px; border-radius: 8px; background: var(--bg); }
   .msg.bob b { color: var(--accent); } .msg.you b { color: var(--ok); }
   aside h3 { font-size: 12px; text-transform: uppercase; letter-spacing: .05em; color: var(--muted); margin: 4px 0 8px; }

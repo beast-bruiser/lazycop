@@ -58,8 +58,8 @@ description: Run a task with LazyCop watching, or "/lazycop off" to stop
 argument-hint: <task> | off
 ---
 <!-- ${MARKER}. Remove with \`lazycop uninstall\`. -->
-If the request below is exactly "off": call the lazycop tool end_session, say that LazyCop
-stopped watching, and do nothing else.
+If the request below is exactly "off": call the lazycop tool end_session with stop: true, say
+that LazyCop stopped watching, and do nothing else.
 
 Otherwise:
 

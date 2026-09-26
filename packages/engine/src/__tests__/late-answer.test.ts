@@ -2,7 +2,7 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import type { CardRecord, AnswerRecord } from "@lazycops/contracts";
 import { createStore, setHold } from "../store.js";
 import { watchedStore } from "./helpers.js";
-import { onMcp, PAUSE_MS } from "../mcp.js";
+import { onMcp } from "../mcp.js";
 import { recordAnswer } from "../review.js";
 import { onHook } from "../hook.js";
 
@@ -12,12 +12,10 @@ describe("answers are never lost", () => {
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("an answer after the 20 s pause reaches Bob at its next tool call", async () => {
+  it("an answer given after Bob moved on reaches him at his next tool call", async () => {
     const store = watchedStore();
-    const declare = onMcp(store, "declare_step", { intent: "add check", files: ["coupon.js"], assumption }, vi.fn());
+    expect(await onMcp(store, "declare_step", { intent: "add check", files: ["coupon.js"], assumption }, vi.fn())).toBe("No messages. Continue.");
     const card = [...store.cards.values()][0] as CardRecord;
-    await vi.advanceTimersByTimeAsync(PAUSE_MS + 10);
-    expect(await declare).toBe("No messages. Continue.");
 
     const late: AnswerRecord = { kind: "answer", card: card.id, pick: "other", text: "end of the customer's local day" };
     recordAnswer(store, card, late, "block");
@@ -39,7 +37,7 @@ describe("declare_step with an assumption does not skip what is already waiting"
   beforeEach(() => vi.useFakeTimers());
   afterEach(() => vi.useRealTimers());
 
-  it("delivers queued developer messages without pausing", async () => {
+  it("delivers queued developer messages in the same call", async () => {
     const store = watchedStore();
     store.pending.push({ id: "m-1", text: "Use the store timezone", channel: "context" });
     const result = await onMcp(store, "declare_step", { intent: "add check", files: ["coupon.js"], assumption }, vi.fn());

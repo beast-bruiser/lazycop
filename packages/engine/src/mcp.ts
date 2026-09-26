@@ -2,11 +2,9 @@ import type { StartSessionInput, EndSessionInput, DeclareStepInput, CheckInInput
 import type { StoreState } from "./store.js";
 import { setHold, waitForDeveloper } from "./store.js";
 import { appendRecord } from "./logger.js";
-import { waitForAnswer } from "./cards.js";
 import { startSession, endSession } from "./session.js";
-import { addAlternatives, makeCard, recordAnswer, reviewBeforeEnd } from "./review.js";
+import { addAlternatives, makeCard, noteDelivered, reviewBeforeEnd } from "./review.js";
 
-export const PAUSE_MS = 30_000;
 export const HOLD_WAIT_MS = 45_000;
 export const MAX_HOLD_POLLS = 3;
 
@@ -32,12 +30,25 @@ export async function onMcp(
   if (!store.session) return "LazyCop is not watching this task. Continue without it.";
 
   if (tool === "end_session") {
-    const { assumptions } = args as unknown as EndSessionInput;
+    const { assumptions, stop } = args as unknown as EndSessionInput;
+    if (stop === true) {
+      endSession(store);
+      push({ type: "session", on: false });
+      return "LazyCop stopped watching.";
+    }
     const list = (Array.isArray(assumptions) ? assumptions : []).filter((a): a is string => typeof a === "string" && a.trim() !== "").slice(0, 5);
     const objections = await reviewBeforeEnd(store, list, HOLD_WAIT_MS, push);
-    if (objections.length) {
-      store.lastMessageCard = objections[0]!.card;
-      return `Before you finish, the developer disagrees:\n- ${objections.map((o) => o.text).join("\n- ")}\nFix these, answer with reply_to_developer, then call end_session again.`;
+    // Answers still waiting for Bob's next step would be lost if the task closed now: that step is this one.
+    const waiting = store.pending.splice(0).map((m) => {
+      noteDelivered(store, m);
+      appendRecord({ kind: "message", id: m.id, ...(m.card ? { card: m.card } : {}), text: m.text, delivered_via: "mcp", ts: new Date().toISOString() });
+      push({ type: "delivered", id: m.id, via: "mcp" });
+      return m.text;
+    });
+    if (objections.length) noteDelivered(store, objections[0]!);
+    const toFix = [...waiting, ...objections.map((o) => o.text)];
+    if (toFix.length) {
+      return `Before you finish, the developer disagrees:\n- ${toFix.join("\n- ")}\nFix these, answer with reply_to_developer, then call end_session again.`;
     }
     endSession(store);
     push({ type: "session", on: false });
@@ -65,26 +76,25 @@ export async function onMcp(
   if (tool === "declare_step") store.lastIntent = declareArgs.intent;
 
   if (tool === "declare_step" && declareArgs.assumption) {
-    const card = makeCard(declareArgs.assumption, "assumption", "declare_step", declareArgs.alternatives);
+    // The first assumption after Bob received a correction restates it: ask whether he got it right.
+    const confirms = store.confirmFor;
+    store.confirmFor = undefined;
+    const card = confirms
+      ? { ...makeCard(declareArgs.assumption, "assumption", "confirm", declareArgs.alternatives), confirms }
+      : makeCard(declareArgs.assumption, "assumption", "declare_step", declareArgs.alternatives);
     createdCard = card.id;
     store.cards.set(card.id, card);
     appendRecord(card);
-    // Pause only when nothing else is waiting: queued messages and holds take priority.
-    const pauses = !declareArgs.important && !store.hold && store.pending.length === 0;
-    push({ type: "card", card, ...(pauses ? { waitUntil: new Date(Date.now() + PAUSE_MS).toISOString() } : {}) });
+    // Cards run alongside Bob's work: he never waits for one. An answer reaches him at his next step.
+    push({ type: "card", card });
     // Bob's own alternatives come first; the card writer, if configured, fills in only when he gave none.
     if (!card.options.some((o) => o.id.startsWith("alt-"))) void addAlternatives(store, card, declareArgs.intent, push);
-
-    if (pauses) {
-      const answer = await waitForAnswer(card.id, PAUSE_MS);
-      if (answer) recordAnswer(store, card, answer, "context");
-    }
   }
 
   if (tool === "declare_step" && declareArgs.important && !store.hold) {
     setHold(store, true);
     store.holdCard = createdCard;
-    push({ type: "hold", on: true, reason: declareArgs.intent });
+    push({ type: "hold", on: true, reason: declareArgs.intent, ...(createdCard ? { card: createdCard } : {}) });
   }
 
   // Outside a hold, check_in means Bob is waiting on the developer: wait once instead of letting it poll.
@@ -110,7 +120,7 @@ export async function onMcp(
   }
 
   const msgs = store.pending.splice(0).map((m) => {
-    if (m.card) store.lastMessageCard = m.card;
+    noteDelivered(store, m);
     appendRecord({
       kind: "message",
       id: m.id,
