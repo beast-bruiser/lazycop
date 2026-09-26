@@ -1,6 +1,6 @@
 # LazyCop — Two-Way Quiz Design
 
-Sep 26, 2026 · @Tran Phi Long NAVER VIETNAM
+Sep 26, 2026 · @KD
 
 ## Summary
 
