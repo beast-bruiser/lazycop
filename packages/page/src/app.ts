@@ -78,10 +78,6 @@ root.addEventListener("click", (e) => {
   answer(card, pick, pick === "ask_why" ? undefined : text);
 });
 
-root.addEventListener("toggle", (e) => {
-  if ((e.target as HTMLElement).dataset.earlier !== undefined) earlierOpen = (e.target as HTMLDetailsElement).open;
-}, true);
-
 root.addEventListener("submit", (e) => {
   e.preventDefault();
   const form = e.target as HTMLFormElement;
