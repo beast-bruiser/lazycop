@@ -49,7 +49,7 @@ The repo has one deliberate parallel split. Tag states with `--plane`:
 
 ## Architecture reference
 
-`docs/reference/architecture.md` holds invariants the code cannot enforce. A state that requires breaking an invariant is invalid — change the invariant there first, deliberately. (File does not exist yet; create it when the first invariant is discovered.)
+`docs/reference/architecture.md` holds invariants the code cannot enforce. A state that requires breaking an invariant is invalid — change the invariant there first, deliberately.
 
 ## Data contracts (`.lazycop/` in each project)
 
