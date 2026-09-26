@@ -1,0 +1,11 @@
+{
+  "hooks": {
+    "SessionStart": [
+      {
+        "hooks": [
+          { "type": "command", "command": "bash .bob/hooks/inject-goal-state.sh", "timeout": 10 }
+        ]
+      }
+    ]
+  }
+}

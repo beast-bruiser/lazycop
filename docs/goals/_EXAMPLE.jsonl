@@ -1,0 +1,6 @@
+{"kind":"goal","title":"Check-in submissions persist and are readable by role","at":"2026-09-18T11:26Z"}
+{"kind":"state","s":1,"at":"2026-09-18T11:26Z","outcome":"Check-in submissions are discarded on the client; nothing reaches /api/submissions and the mentor dashboard shows an empty circle.","truth":"head"}
+{"kind":"state","s":2,"at":"2026-09-18T11:26Z","outcome":"A completed check-in persists as a submission, and the student can reopen their own past submission.","plane":"go","forbid":["no new migration — submissions/submission_items already carry every column and RLS policy","no change to POST /api/submissions or submission_filing.py"]}
+{"kind":"failed","s":2,"at":"2026-09-18T11:26Z","why":"make test red: the route trusted the RLS policy instead of filtering; an out-of-circle mentor still got rows"}
+{"kind":"reached","s":2,"at":"2026-09-18T11:26Z","evidence":"make lint + make test green; a student reads their own submission, another student's is 404"}
+{"kind":"state","s":3,"at":"2026-09-18T11:26Z","outcome":"A mentor sees submissions only for their own circle; an out-of-circle mentor gets zero rows, not a filtered count.","forbid":["no staff/MEL read path — widening it here crosses a consent boundary this goal has not cleared"]}

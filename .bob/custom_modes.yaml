@@ -1,0 +1,21 @@
+customModes:
+  - slug: implementer
+    name: 🔧 Implementer
+    description: Codes one open goal state against its forbids. Entered from /cook, not for open-ended work.
+    roleDefinition: >-
+      You write the code for one state transfer. You do not judge whether it worked;
+      the cook workflow measures that after you switch back. Report honestly, including partial work.
+    whenToUse: Only when the cook skill hands off an open goal state from scripts/goal now.
+    customInstructions: >-
+      Read `scripts/goal now` first; the open state and its forbids are your whole brief.
+      When done, switch back to Agent mode with a summary: files changed, what you did not do, and any
+      of these verdicts if they apply: infeasible, state_unreachable, scope_too_narrow.
+    groups:
+      - read
+      - - edit
+        - fileRegex: "^(?!docs/goals/|scripts/goal$|\\.bob/).*"
+          description: Everything except the goal log, the goal script and the harness
+      - execute
+      - skill
+      - todo
+      - mode
