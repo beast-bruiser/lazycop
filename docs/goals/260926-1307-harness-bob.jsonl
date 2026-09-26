@@ -1,0 +1,5 @@
+{"kind":"goal","title":"Goal-driven harness runs under Bob","at":"2026-09-26T11:07Z"}
+{"kind":"state","s":1,"at":"2026-09-26T11:07Z","outcome":"The repo has a goal-driven harness that has never run inside Bob.","truth":"head"}
+{"kind":"state","s":2,"at":"2026-09-26T11:07Z","outcome":"The goal-driven harness is confirmed working inside Bob, with the Boundary Map written.","forbid":["product code — this goal only checks the harness"]}
+{"kind":"reached","s":2,"at":"2026-09-26T11:08Z","evidence":"Boundary Map written to docs/reference/architecture.md; AGENTS.md placeholder removed; goal CLI round-trip passed (new/add/now/forbidden-task all behaved correctly); SessionStart hook script verified in .bob/hooks/inject-goal-state.sh; implementer mode present in .bob/custom_modes.yaml with fileRegex; all 5 skills confirmed in .bob/skills/; /cook command in .bob/commands/cook.md using $ARGUMENTS"}
+{"kind":"closed","at":"2026-09-26T11:08Z","disposition":"harness checked in Bob"}

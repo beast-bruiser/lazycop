@@ -1,6 +1,6 @@
 # LazyCop — Two-Way Quiz Design
 
-Sep 26, 2026
+Sep 26, 2026 · @KD
 
 ## Summary
 
@@ -23,17 +23,17 @@ The spike on Bob IDE 2.2.0 confirmed the key technical bet: a correction sent fr
 
 Bob 2.2.0 can talk both ways with LazyCop: hooks report every tool call, and MCP carries developer messages back into the running task. Facts come from reading Bob's bundled source (Bob IDE `1.126.0+bob2.2.0`) and four live runs on a sandbox coupon task. The harness is in `spike/`.
 
-| Question | Result | Evidence |
-| --- | --- | --- |
-| Hook events and payload | 7 events; every payload has `session_id`, `cwd`, `hook_event_name`; tool events add `tool_name`, `tool_input`, `tool_use_id`, and PostToolUse adds `tool_response` | Bob source + run 1 log |
-| Tool names | `glob`, `read_file`, `apply_diff`, MCP tools as `mcp__lazycop__<tool>` | Run 1 log |
-| Diff available | `apply_diff` input has search/replace blocks; PostToolUse response contains a unified patch | Run 1 log |
-| PreToolUse exit-2 reason reaches the model | Yes in 2.2.0: returned as the tool's error result | Bob source |
-| PostToolUse stdout reaches the model | Yes: added beside the tool result | Bob source |
-| Hooks inside subagents | Yes: subagents inherit the parent's hook handlers | Bob source |
-| Bob calls `declare_step` before edits | Yes, unprompted, with a stated assumption | Run 1 |
-| Hold keeps Bob waiting | Yes, once LazyCop's own tools were exempt and `check_in` waits on the server | Runs 2–4 |
-| Correction changes the code | Yes: Bob replied, re-declared the corrected assumption, then coded to it | Run 4, Test A |
+| Question                                   | Result                                                                                                                                                             | Evidence               |
+| ------------------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ---------------------- |
+| Hook events and payload                    | 7 events; every payload has `session_id`, `cwd`, `hook_event_name`; tool events add `tool_name`, `tool_input`, `tool_use_id`, and PostToolUse adds `tool_response` | Bob source + run 1 log |
+| Tool names                                 | `glob`, `read_file`, `apply_diff`, MCP tools as `mcp__lazycop__<tool>`                                                                                             | Run 1 log              |
+| Diff available                             | `apply_diff` input has search/replace blocks; PostToolUse response contains a unified patch                                                                        | Run 1 log              |
+| PreToolUse exit-2 reason reaches the model | Yes in 2.2.0: returned as the tool's error result                                                                                                                  | Bob source             |
+| PostToolUse stdout reaches the model       | Yes: added beside the tool result                                                                                                                                  | Bob source             |
+| Hooks inside subagents                     | Yes: subagents inherit the parent's hook handlers                                                                                                                  | Bob source             |
+| Bob calls `declare_step` before edits      | Yes, unprompted, with a stated assumption                                                                                                                          | Run 1                  |
+| Hold keeps Bob waiting                     | Yes, once LazyCop's own tools were exempt and `check_in` waits on the server                                                                                       | Runs 2–4               |
+| Correction changes the code                | Yes: Bob replied, re-declared the corrected assumption, then coded to it                                                                                           | Run 4, Test A          |
 
 Run 4 in one line: same prompt as run 1, but a correction sent while Bob was held turned `coupon.expiresAt < new Date()` into a local-day comparison on `expiresOn`, in 66 seconds and with no rework.
 
@@ -63,12 +63,12 @@ What should "expired" mean?
  [ Ask Bob why ]
 ```
 
-| Developer picks | Meaning | Typing | What Bob receives |
-| --- | --- | --- | --- |
-| Bob's option | Agree: shared knowledge, verified | None | Nothing, or a release if Bob is paused on this card |
-| Another option | Disagree; the chosen option is the reason | None | "The developer disagrees with: \<claim>. They expect: \<option>. Reply, then adjust." |
-| Something else | Disagree, in the developer's own words | One line | The same message, with the typed line as the expectation |
-| Ask why | Unsure, or the question itself seems wrong | None | "The developer asks why: \<claim>. Explain with `reply_to_developer` before editing." |
+| Developer picks | Meaning                                    | Typing   | What Bob receives                                                                     |
+| --------------- | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------- |
+| Bob's option    | Agree: shared knowledge, verified          | None     | Nothing, or a release if Bob is paused on this card                                   |
+| Another option  | Disagree; the chosen option is the reason  | None     | "The developer disagrees with: \<claim>. They expect: \<option>. Reply, then adjust." |
+| Something else  | Disagree, in the developer's own words     | One line | The same message, with the typed line as the expectation                              |
+| Ask why         | Unsure, or the question itself seems wrong | None     | "The developer asks why: \<claim>. Explain with `reply_to_developer` before editing." |
 
 The companion's LLM writes the alternatives from the task and Bob's claim. They give the developer quick words, not an answer key: no option is marked right, and Bob's reading is always on the list. Typing is needed only when none of the options fits.
 
@@ -83,14 +83,14 @@ The loop closes itself. After a correction, Bob re-declares the step, as it did 
 
 Six card types cover the task from the first prompt to the final message. Each draws on one source Bob produces, so every claim is traceable.
 
-| Card | Fires when | Source | Example | Mostly serves |
-| --- | --- | --- | --- | --- |
-| Interpretation | Bob starts the task or plans | First `declare_step`, the plan | "Bob reads 'expired' as a timestamp before now. Is that what you meant?" | Catching |
-| Assumption | `declare_step` states an assumption | `declare_step.assumption` | "Bob assumes `expiresAt` is a Date compared to now. Do you?" | Catching |
-| Predict the move | Bob declares an edit to a file | `declare_step.files` + real functions in that file | "Bob is heading to `coupon.js`. Which function will change?" | Understanding |
-| Read the hunk | An edit lands | PostToolUse unified patch | "This new line returns early when…? Bob says: the coupon is past `expiresOn`." | Understanding |
-| Hidden assumption | An edit decides a rule nobody asked about, or Bob ends the task on an unconfirmed assumption | The edit's patch, read by the card writer; `end_session.assumptions` | "Bob's change decides: a coupon without expiresOn never expires. Is that what you want?" | Catching |
-| Decision review | `declare_step.important` is true | `declare_step` | "Bob wants to add a date library instead of 3 lines. Agree?" | Both |
+| Card              | Fires when                                                                                   | Source                                                               | Example                                                                                  | Mostly serves |
+| ----------------- | -------------------------------------------------------------------------------------------- | -------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- | ------------- |
+| Interpretation    | Bob starts the task or plans                                                                 | First `declare_step`, the plan                                       | "Bob reads 'expired' as a timestamp before now. Is that what you meant?"                 | Catching      |
+| Assumption        | `declare_step` states an assumption                                                          | `declare_step.assumption`                                            | "Bob assumes `expiresAt` is a Date compared to now. Do you?"                             | Catching      |
+| Predict the move  | Bob declares an edit to a file                                                               | `declare_step.files` + real functions in that file                   | "Bob is heading to `coupon.js`. Which function will change?"                             | Understanding |
+| Read the hunk     | An edit lands                                                                                | PostToolUse unified patch                                            | "This new line returns early when…? Bob says: the coupon is past `expiresOn`."           | Understanding |
+| Hidden assumption | An edit decides a rule nobody asked about, or Bob ends the task on an unconfirmed assumption | The edit's patch, read by the card writer; `end_session.assumptions` | "Bob's change decides: a coupon without expiresOn never expires. Is that what you want?" | Catching      |
+| Decision review   | `declare_step.important` is true                                                             | `declare_step`                                                       | "Bob wants to add a date library instead of 3 lines. Agree?"                             | Both          |
 
 The card mix leans toward understanding, about 60 to 40, but any card can become a catch when the developer picks a reading other than Bob's.
 
@@ -104,11 +104,11 @@ Hidden-assumption cards matter most for catching: in both coupon runs, the rule 
 
 Bob waits for the developer only in proportion to the stakes: never for understanding cards, briefly for assumptions, and longer for important decisions. Every wait ends on its own.
 
-| Level | Triggered by | Bob's behaviour | Ends when |
-| --- | --- | --- | --- |
-| Flow | Predict, read-the-hunk, most cards | Keeps working; cards queue on the page | Card answered, skipped or stale |
-| Pause | `declare_step` with an assumption | `declare_step` waits up to 30 s for the card's answer | Answer arrives, or 30 s pass and Bob continues |
-| Hold | `declare_step` with `important: true`, or the developer's Hold button | Edit tools blocked; Bob waits inside `check_in`, 45 s per call | Developer answers or releases, or 3 waits (about 2 min) pass |
+| Level | Triggered by                                                          | Bob's behaviour                                                | Ends when                                                    |
+| ----- | --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
+| Flow  | Predict, read-the-hunk, most cards                                    | Keeps working; cards queue on the page                         | Card answered, skipped or stale                              |
+| Pause | `declare_step` with an assumption                                     | `declare_step` waits up to 30 s for the card's answer          | Answer arrives, or 30 s pass and Bob continues               |
+| Hold  | `declare_step` with `important: true`, or the developer's Hold button | Edit tools blocked; Bob waits inside `check_in`, 45 s per call | Developer answers or releases, or 3 waits (about 2 min) pass |
 
 On a hold timeout, Bob is told to continue with its plan and name the assumption it relied on in its final message. That message then feeds a hidden-assumption card, so nothing is lost.
 
@@ -125,13 +125,13 @@ The numbers are starting points (30 s pause, 45 s per wait, 3 waits) to tune on 
 
 LazyCop is installed once, stays dormant, and becomes active only for a task the developer starts with it. Outside that task it watches nothing, blocks nothing and adds nothing to Bob's context.
 
-| Phase | How | What happens |
-| --- | --- | --- |
-| Install, once per workspace | `npx lazycop init` | Writes the plugin folder `.bob/plugins/lazycop/`: the LazyCop mode in `custom_modes.yaml` and the MCP server in `mcp.json`. Adds the hook entries to `.bob/settings.json`, because Bob plugins cannot carry hooks |
-| Dormant, the default | Nothing | Hooks see no active session and exit at once with no output. Nothing tells Bob to call LazyCop's tools. The only standing cost is the MCP tool descriptions Bob sends with each request |
-| Invoke | `/lazycop <task>`, or switch to the LazyCop mode and type the task | The mode tells Bob to call `start_session` first, then `declare_step` before every edit. `start_session` starts the server if needed, marks this task active and opens the page |
-| Active | The task runs, across all of its turns | Cards, pauses and holds apply only to hook events from the active task. Other Bob tasks are left alone |
-| End | Bob calls `end_session` when the task is done, the developer types `/lazycop off`, or leaves the mode | Unconfirmed assumptions get a final review; then the session closes, the page shows the wrap-up, and the hooks go dormant again |
+| Phase                       | How                                                                                                   | What happens                                                                                                                                                                                                      |
+| --------------------------- | ----------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| Install, once per workspace | `npx lazycop init`                                                                                    | Writes the plugin folder `.bob/plugins/lazycop/`: the LazyCop mode in `custom_modes.yaml` and the MCP server in `mcp.json`. Adds the hook entries to `.bob/settings.json`, because Bob plugins cannot carry hooks |
+| Dormant, the default        | Nothing                                                                                               | Hooks see no active session and exit at once with no output. Nothing tells Bob to call LazyCop's tools. The only standing cost is the MCP tool descriptions Bob sends with each request                           |
+| Invoke                      | `/lazycop <task>`, or switch to the LazyCop mode and type the task                                    | The mode tells Bob to call `start_session` first, then `declare_step` before every edit. `start_session` starts the server if needed, marks this task active and opens the page                                   |
+| Active                      | The task runs, across all of its turns                                                                | Cards, pauses and holds apply only to hook events from the active task. Other Bob tasks are left alone                                                                                                            |
+| End                         | Bob calls `end_session` when the task is done, the developer types `/lazycop off`, or leaves the mode | Unconfirmed assumptions get a final review; then the session closes, the page shows the wrap-up, and the hooks go dormant again                                                                                   |
 
 Three rules make this work:
 
@@ -171,22 +171,22 @@ Five MCP tools and four hook events carry the whole game. Everything else is int
 
 **MCP tools** (server `lazycop`, auto-approved through `alwaysAllow` in `.bob/mcp.json`):
 
-| Tool | Bob calls it | Arguments | Returns |
-| --- | --- | --- | --- |
-| `start_session` | First, when the developer invokes LazyCop | `task`: the developer's request | The page address and "LazyCop is watching this task" |
-| `declare_step` | Before every file edit | `intent`, `files`, optional `assumption`, `alternatives` and `important` | Pending developer messages, or "Continue"; pauses or holds per Pacing |
-| `check_in` | When told the developer is reviewing | `poll` (1, 2, 3… so calls are never identical) | Messages, "HOLD", or the timeout instruction |
-| `reply_to_developer` | After a disagreement or ask-why | `text` | "Delivered to the developer" |
-| `end_session` | When the task is done, or on `/lazycop off` | optional `assumptions`: what Bob relied on without confirmation | "LazyCop stopped watching", or the developer's objections to fix first |
+| Tool                 | Bob calls it                                | Arguments                                                                | Returns                                                                |
+| -------------------- | ------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
+| `start_session`      | First, when the developer invokes LazyCop   | `task`: the developer's request                                          | The page address and "LazyCop is watching this task"                   |
+| `declare_step`       | Before every file edit                      | `intent`, `files`, optional `assumption`, `alternatives` and `important` | Pending developer messages, or "Continue"; pauses or holds per Pacing  |
+| `check_in`           | When told the developer is reviewing        | `poll` (1, 2, 3… so calls are never identical)                           | Messages, "HOLD", or the timeout instruction                           |
+| `reply_to_developer` | After a disagreement or ask-why             | `text`                                                                   | "Delivered to the developer"                                           |
+| `end_session`        | When the task is done, or on `/lazycop off` | optional `assumptions`: what Bob relied on without confirmation          | "LazyCop stopped watching", or the developer's objections to fix first |
 
 **Hooks** (command handlers in `.bob/settings.json`, added by `npx lazycop init`, 5 s timeout, fail open, dormant outside an active session):
 
-| Event | LazyCop uses it to | Output to Bob |
-| --- | --- | --- |
-| `PreToolUse` | Enforce holds and scope; deliver an urgent message | Exit 2 with the message as the tool's error |
-| `PostToolUse` | Log the event and its patch; feed read-the-hunk cards | Stdout note beside the result, for non-urgent messages |
-| `UserPromptSubmit` | Deliver messages when Bob has ended its turn | Stdout added to the prompt's context |
-| `Stop` | Feed hidden-assumption cards and the scorecard | None |
+| Event              | LazyCop uses it to                                    | Output to Bob                                          |
+| ------------------ | ----------------------------------------------------- | ------------------------------------------------------ |
+| `PreToolUse`       | Enforce holds and scope; deliver an urgent message    | Exit 2 with the message as the tool's error            |
+| `PostToolUse`      | Log the event and its patch; feed read-the-hunk cards | Stdout note beside the result, for non-urgent messages |
+| `UserPromptSubmit` | Deliver messages when Bob has ended its turn          | Stdout added to the prompt's context                   |
+| `Stop`             | Feed hidden-assumption cards and the scorecard        | None                                                   |
 
 LazyCop's own tools (`mcp__lazycop__*`) are never blocked by its hooks; the spike's first hold failed because they were.
 
