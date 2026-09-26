@@ -16,7 +16,7 @@ exempt from PreToolUse blocks and PostToolUse delays. Blocking them would
 deadlock Bob mid-hold.
 
 **3. Every wait on the developer ends.**
-- A pause (declare_step with assumption) waits at most 30 s, then Bob continues.
+- Assumption cards never make Bob wait: an answer reaches him at his next step.
 - A hold (declare_step with important: true, or the Hold button): each check_in
   waits at most 45 s, at most 3 waits per hold, then Bob is released automatically.
 - The 45 s per-wait ceiling stays under Bob's MCP client default request timeout

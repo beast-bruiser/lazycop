@@ -6,7 +6,7 @@ import type { CardRecord, HookPayload, SseEventInput } from "@lazycops/contracts
 import { watchedStore } from "./helpers.js";
 import { onMcp, HOLD_WAIT_MS } from "../mcp.js";
 import { resolveCard } from "../cards.js";
-import { reviewEdit } from "../review.js";
+import { recordAnswer, reviewEdit } from "../review.js";
 import { parseList, setCardWriter } from "../writer.js";
 import type { CardWriter } from "../writer.js";
 import { loadEnvFile } from "../env.js";
@@ -14,6 +14,7 @@ import { loadEnvFile } from "../env.js";
 const fakeWriter = (over: Partial<CardWriter> = {}): CardWriter => ({
   alternatives: async () => ["expires at the end of the local day", "expires after a fixed number of days"],
   hiddenAssumption: async () => "a coupon without expiresOn never expires",
+  specCheck: async () => null,
   ...over,
 });
 const cards = (events: SseEventInput[]) => events.filter((e): e is Extract<SseEventInput, { type: "card" }> => e.type === "card").map((e) => e.card);
@@ -39,9 +40,9 @@ describe("the card writer", () => {
     setCardWriter(fakeWriter({ alternatives: () => new Promise((r) => (release = r)) }));
     const events: SseEventInput[] = [];
     const store = watchedStore();
-    const paused = onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
-    resolveCard(cards(events)[0]!.id, { kind: "answer", card: cards(events)[0]!.id, pick: "bob" });
-    await paused;
+    await onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
+    const first = cards(events)[0]!;
+    recordAnswer(store, first, { kind: "answer", card: first.id, pick: "bob" }, "block");
     release(["too late"]);
     await flush();
     expect(cards(events)).toHaveLength(1);
@@ -132,5 +133,21 @@ describe("Bob's own alternatives (option A)", () => {
     ]);
     expect(updates).toHaveLength(0);
     expect(asked).toBe(false);
+  });
+});
+
+describe("end_session never drops an answer still on its way to Bob", () => {
+  it("a correction queued for Bob's next step keeps the task open and reaches him", async () => {
+    const store = watchedStore();
+    const events: SseEventInput[] = [];
+    await onMcp(store, "declare_step", { intent: "add expiry", files: ["coupon.js"], assumption: "an expired coupon returns cart.total" }, (e) => events.push(e));
+    const card = cards(events)[0]!;
+    recordAnswer(store, card, { kind: "answer", card: card.id, pick: "alt-2", text: "an expired coupon should throw an error" }, "block");
+    const result = await onMcp(store, "end_session", {}, vi.fn());
+    expect(result).toContain("an expired coupon should throw an error");
+    expect(result).toContain("call end_session again");
+    expect(store.session).not.toBeNull();
+    expect(store.pending).toHaveLength(0);
+    expect(store.confirmFor).toBe(card.id);
   });
 });

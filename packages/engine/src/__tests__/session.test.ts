@@ -72,7 +72,7 @@ describe("LazyCop is dormant unless invoked (invariant 7)", () => {
     await invoke(store, "s-1");
     setHold(store, true);
     store.pending.push({ id: "m-1", text: "stop", channel: "block" });
-    expect(await onMcp(store, "end_session", {}, vi.fn())).toContain("stopped watching");
+    expect(await onMcp(store, "end_session", { stop: true }, vi.fn())).toContain("stopped watching");
     expect(store.session).toBeNull();
     expect(store.hold).toBe(false);
     expect(onHook(store, edit("s-1"))).toEqual({});

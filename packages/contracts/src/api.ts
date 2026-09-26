@@ -63,6 +63,8 @@ export interface SseHoldEvent {
   at: string;
   on: boolean;
   reason: string;
+  /** The card whose decision Bob is held on; absent for the developer's own Hold. */
+  card?: string;
 }
 
 /** A Bob hook event arrived. */
@@ -128,6 +130,15 @@ export interface SseWaitingEvent {
   card?: string;
 }
 
+/** The knowledge agent took in a document for this task. */
+export interface SseDocEvent {
+  type: "doc";
+  at: string;
+  path: string;
+  /** "named" by the developer, or read by Bob. */
+  source: "named" | "bob";
+}
+
 /** Bob replied to the developer. */
 export interface SseReplyEvent {
   type: "reply";
@@ -150,6 +161,7 @@ export type SseEvent =
       | SseDeliveredEvent
       | SseReplyEvent
       | SseWaitingEvent
+      | SseDocEvent
     ) & FromAgent);
 
 /** An SSE event before the server stamps its `at` time. */
@@ -192,4 +204,6 @@ export interface PendingMessage {
   channel: "block" | "context";
   /** The card this message answers; absent for free-text and Hold messages. */
   card?: string;
+  /** true when the message corrects Bob's reading, so his next assumption should restate it. */
+  correction?: boolean;
 }

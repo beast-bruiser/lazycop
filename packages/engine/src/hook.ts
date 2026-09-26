@@ -2,6 +2,7 @@ import type { HookPayload } from "@lazycops/contracts";
 import type { StoreState } from "./store.js";
 import { takePending, isWatched } from "./store.js";
 import { START_TOOL, bindSession } from "./session.js";
+import { noteDelivered } from "./review.js";
 import { appendRecord } from "./logger.js";
 
 export interface HookResult {
@@ -46,7 +47,7 @@ export function onHook(store: StoreState, payload: HookPayload): HookResult {
     }
     const msg = takePending(store, "block");
     if (msg) {
-      if (msg.card) store.lastMessageCard = msg.card;
+      noteDelivered(store, msg);
       appendRecord({
         kind: "message",
         id: msg.id,
@@ -66,7 +67,7 @@ export function onHook(store: StoreState, payload: HookPayload): HookResult {
   ) {
     const msg = takePending(store, "context");
     if (msg) {
-      if (msg.card) store.lastMessageCard = msg.card;
+      noteDelivered(store, msg);
       appendRecord({
         kind: "message",
         id: msg.id,

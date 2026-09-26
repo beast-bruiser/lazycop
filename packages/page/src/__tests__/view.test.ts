@@ -111,3 +111,53 @@ describe("card updates", () => {
     expect(view.cards[0]!.waitUntil).toBe("2026-09-26T12:00:30.000Z");
   });
 });
+
+describe("answered cards and labels", () => {
+  it("labels cards by where they came from", async () => {
+    const { sourceLabel } = await import("../view.js");
+    expect(["declare_step", "diff", "end_session", "confirm"].map((source) => sourceLabel({ ...card, source })))
+      .toEqual(["Before an edit", "After an edit", "Final review", "Checking your correction"]);
+  });
+
+  it("keeps the latest answer first, whatever order the cards were created in", async () => {
+    const { answeredCards } = await import("../view.js");
+    const view = run(
+      started,
+      { type: "card", at, card },
+      { type: "card", at, card: { ...card, id: "k-2" } },
+      { type: "answer", at: "2026-09-26T12:00:05.000Z", answer: { kind: "answer", card: "k-2", pick: "bob" } },
+      { type: "answer", at: "2026-09-26T12:00:09.000Z", answer: { kind: "answer", card: "k-1", pick: "bob" } },
+    );
+    expect(answeredCards(view).map((c) => c.card.id)).toEqual(["k-1", "k-2"]);
+  });
+
+  it("a confirmation card knows what the developer had said", async () => {
+    const { correctionBeingConfirmed } = await import("../view.js");
+    const confirm = { ...card, id: "k-2", source: "confirm", confirms: "k-1" };
+    const view = run(
+      started,
+      { type: "card", at, card },
+      { type: "answer", at, answer: { kind: "answer", card: "k-1", pick: "other", text: "end of the local day" } },
+      { type: "card", at, card: confirm },
+    );
+    expect(correctionBeingConfirmed(view, view.cards[1]!)).toBe("end of the local day");
+  });
+});
+
+describe("hold on a card", () => {
+  it("remembers which card Bob is held on until the hold ends", () => {
+    let view = run(started, { type: "card", at, card }, { type: "hold", at, on: true, reason: "add date-fns", card: "k-1" });
+    expect(view.holdCard).toBe("k-1");
+    view = reduce(view, { type: "hold", at, on: false, reason: "answered" });
+    expect(view.holdCard).toBeUndefined();
+  });
+});
+
+describe("knowledge agent on the page", () => {
+  it("labels spec checks and notes each document in the feed", async () => {
+    const { sourceLabel } = await import("../view.js");
+    expect(sourceLabel({ ...card, source: "spec" })).toBe("Spec check");
+    const view = run(started, { type: "doc", at, path: "SPEC.md", source: "named" });
+    expect(view.feed.at(-1)).toMatchObject({ kind: "doc", text: "LazyCop knows SPEC.md (you named it)" });
+  });
+});

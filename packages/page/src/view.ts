@@ -10,13 +10,15 @@ export interface CardView {
   trailAt: number;
   /** When the card arrived. */
   at: string;
+  /** When the developer answered, to keep the latest exchange in view. */
+  answeredAt?: string;
   /** Bob's replies and the developer's follow-ups on this card, in order. */
   thread: { from: "bob" | "you"; text: string }[];
 }
 
 export interface FeedItem {
   at: string;
-  kind: "step" | "read" | "edit" | "reply" | "you" | "hold" | "session";
+  kind: "step" | "read" | "edit" | "reply" | "you" | "hold" | "session" | "doc";
   text: string;
 }
 
@@ -34,6 +36,8 @@ export interface ViewState {
   /** true once the watched task has ended; the page then shows the wrap-up. */
   ended: boolean;
   hold: boolean;
+  /** The card Bob is held on, when an important decision started the hold. */
+  holdCard?: string;
   /** Set while Bob waits in check_in for the developer's answer. */
   waiting: { until?: string; card?: string } | null;
   cards: CardView[];
@@ -89,7 +93,9 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
         ? { ...emptyView(), connected: true, task: event.task ?? "", feed: [{ at: event.at, kind: "session", text: "LazyCop started watching" }] }
         : { ...view, ended: true, hold: false, waiting: null, feed: feed("session", "LazyCop stopped watching") };
     case "hold":
-      return { ...view, hold: event.on, feed: feed("hold", event.on ? "Bob is on hold" : `Hold released (${event.reason})`) };
+      return { ...view, hold: event.on, holdCard: event.on ? event.card : undefined, feed: feed("hold", event.on ? "Bob is on hold" : `Hold released (${event.reason})`) };
+    case "doc":
+      return { ...view, feed: feed("doc", `LazyCop knows ${event.path} (${event.source === "named" ? "you named it" : "Bob read it"})`) };
     case "waiting":
       return { ...view, waiting: event.on ? { until: event.until, card: event.card } : null };
     case "card": {
@@ -100,7 +106,7 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
         : { ...view, cards: [...view.cards, { card: event.card, waitUntil: event.waitUntil, thread: [], trailAt: view.trail.length, at: event.at }] };
     }
     case "answer":
-      return { ...view, cards: view.cards.map((c) => (c.card.id === event.answer.card ? { ...c, answer: event.answer } : c)) };
+      return { ...view, cards: view.cards.map((c) => (c.card.id === event.answer.card ? { ...c, answer: event.answer, answeredAt: event.at } : c)) };
     case "reply": {
       const target = event.card ?? [...view.cards].reverse().find((c) => c.answer)?.card.id;
       return {
@@ -139,6 +145,22 @@ export function waitingQuestion(view: ViewState): { card?: string; text?: string
   const card = view.cards.find((c) => c.card.id === view.waiting!.card);
   const last = card?.thread.at(-1);
   return { card: card?.card.id, text: last?.from === "bob" ? last.text : undefined };
+}
+
+/** Where a card came from, as the page labels it. */
+export function sourceLabel(card: CardRecord): string {
+  return { declare_step: "Before an edit", diff: "After an edit", end_session: "Final review", confirm: "Checking your correction", spec: "Spec check" }[card.source] ?? "Question";
+}
+
+/** Answered cards, latest answer first: the first stays open under the current card, the rest fold away. */
+export function answeredCards(view: ViewState): CardView[] {
+  return view.cards.filter((c) => c.answer).sort((a, b) => (b.answeredAt ?? "").localeCompare(a.answeredAt ?? ""));
+}
+
+/** For a confirmation card: what the developer had said on the card it confirms. */
+export function correctionBeingConfirmed(view: ViewState, c: CardView): string | undefined {
+  const original = c.card.confirms ? view.cards.find((o) => o.card.id === c.card.confirms) : undefined;
+  return original?.answer?.text;
 }
 
 /** The card the developer should look at now: the oldest unanswered one. */

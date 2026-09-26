@@ -10,6 +10,7 @@ import { agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, tagged,
 import { reviewEdit } from "./review.js";
 import { loadEnvFile } from "./env.js";
 import { onDeveloper } from "./developer.js";
+import { addDoc, fileText, isDocPath } from "./docs.js";
 
 const PORT = Number(process.env.LAZYCOP_PORT ?? 4747);
 
@@ -46,6 +47,13 @@ function serveAsset(res: http.ServerResponse, path: string): void {
 
 const squad = createSquad();
 const clients = new Set<http.ServerResponse>();
+
+/** Documents Bob opens become part of the task's knowledge, as he read them. */
+function keepDocBobRead(agent: { store: Parameters<typeof addDoc>[0] }, payload: HookPayload, send: typeof push): void {
+  if (payload.hook_event_name !== "PostToolUse" || payload.tool_name !== "read_file") return;
+  const path = (payload.tool_input as { path?: unknown } | null)?.path;
+  if (typeof path === "string" && isDocPath(path)) addDoc(agent.store, path, fileText(payload.tool_response), "bob", send);
+}
 
 const HISTORY_LIMIT = 1500;
 
@@ -134,6 +142,7 @@ export function createServer(): http.Server {
           const send = tagged(push, agent);
           send({ type: "hook", seq: ++squad.seq, payload });
           void withRecords(agent, () => reviewEdit(agent.store, payload, send));
+          keepDocBobRead(agent, payload, send);
         }
         return json(res, result);
       }

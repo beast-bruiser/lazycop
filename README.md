@@ -49,8 +49,8 @@ or run `init` again after moving it.
 - Settings → Hooks: 4 LazyCop hooks
 
 **4. Recommended: auto-approve LazyCop's tools.** In Bob's Auto-approve settings, enable **MCP** (and
-**Mode**, to switch into the LazyCop mode without a prompt). Otherwise Bob asks before every LazyCop call, and
-the wait eats into the time a card gives you. `init` prints a tip when these are off; it never changes your
+**Mode**, to switch into the LazyCop mode without a prompt). Otherwise Bob asks you to approve every LazyCop call,
+which interrupts the work LazyCop is meant to run alongside. `init` prints a tip when these are off; it never changes your
 Bob settings itself.
 
 ## Use
@@ -62,9 +62,9 @@ In Bob, start a new task with:
 ```
 
 - Bob switches to the LazyCop mode and your browser opens **http://127.0.0.1:4747**.
-- Before each edit Bob states his assumption. Answer the card with one click: Bob's reading, one of the
-  alternatives, **Something else…** (type a line), or **Ask Bob why**. Bob waits up to 30 s; a later answer
-  still reaches him at his next step.
+- Before each edit Bob states his assumption, and a card keeps you up to date while he works; he never
+  waits for it. Answer with one click: Bob's reading, one of the alternatives, **Something else…** (type a
+  line), or **Ask Bob why**. If your answer differs, Bob gets it at his next step and changes course.
 - When Bob asks you something, the page shows **Bob is waiting for your answer** with a reply box.
 - **Hold Bob** stops his edits while you think; important decisions (a new dependency, an API change,
   deleted code) hold him by themselves until you answer.

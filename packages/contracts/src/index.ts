@@ -39,6 +39,7 @@ export type {
   SseDeliveredEvent,
   SseReplyEvent,
   SseWaitingEvent,
+  SseDocEvent,
   SseEventInput,
   QueueBody,
   HoldBody,

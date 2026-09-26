@@ -65,7 +65,7 @@ What should "expired" mean?
 
 | Developer picks | Meaning                                    | Typing   | What Bob receives                                                                     |
 | --------------- | ------------------------------------------ | -------- | ------------------------------------------------------------------------------------- |
-| Bob's option    | Agree: shared knowledge, verified          | None     | Nothing, or a release if Bob is paused on this card                                   |
+| Bob's option    | Agree: shared knowledge, verified          | None     | Nothing |
 | Another option  | Disagree; the chosen option is the reason  | None     | "The developer disagrees with: \<claim>. They expect: \<option>. Reply, then adjust." |
 | Something else  | Disagree, in the developer's own words     | One line | The same message, with the typed line as the expectation                              |
 | Ask why         | Unsure, or the question itself seems wrong | None     | "The developer asks why: \<claim>. Explain with `reply_to_developer` before editing." |
@@ -96,21 +96,42 @@ The card mix leans toward understanding, about 60 to 40, but any card can become
 
 Bob's claim is always Bob's own words, and so are the alternatives: `declare_step` carries up to three other readings a reasonable developer might have meant, so the card arrives complete and costs only a few extra tokens in a call Bob already makes. The card writer, Granite on watsonx.ai, is optional and independent of Bob: it fills in alternatives only when Bob gave none, and writes the hidden-assumption card after an edit, where a second opinion matters most because Bob would be judging his own change. Without watsonx credentials those are skipped and nothing else changes. Facts that can be computed, such as which function a patch touches, are computed rather than generated.
 
-**The final review.** Bob passes `end_session` every assumption the developer never confirmed. Each becomes a card, and Bob waits up to 45 s. If the developer disagrees with one, the session stays open and Bob gets the correction to fix before ending again. This is the last catch before the task closes.
+**The final review.** Bob passes `end_session` every assumption the developer never confirmed. Each becomes a card, and Bob waits up to 45 s. If the developer disagrees with one, the session stays open and Bob gets the correction to fix before ending again. Answers still on their way to Bob's next step are handed over here too, since `end_session` may be that step. This is the last catch before the task closes. `/lazycop off` passes `stop: true` and ends at once, with no review.
 
 Hidden-assumption cards matter most for catching: in both coupon runs, the rule with the biggest product impact was never declared.
 
+## Knowledge agent
+
+The knowledge agent reads the task's documents and checks Bob's assumptions against them, so a mistake is caught with the passage that proves it. It runs in LazyCop's server on Granite (watsonx.ai), never in Bob, and only when watsonx credentials are set.
+
+**Documents come from two places:**
+
+- **Named by the developer:** `/lazycop <task> --docs SPEC.md,docs/api.md`. Bob passes the paths to `start_session`, and LazyCop reads them from the workspace. Paths outside the workspace are refused.
+- **Read by Bob:** when Bob opens a document-like file (`.md`, `.txt`, `.rst`, `.adoc`, or a name with spec, readme, requirement or design in it), the after-read hook already carries its text, and LazyCop keeps it.
+
+**The spec check** is the first question it asks. For each assumption Bob declares, Granite compares it with the documents. If a passage contradicts it or makes it more precise, a **Spec check** card appears beside the assumption card:
+
+> SPEC CHECK · SPEC.md: "Coupons expire at the end of the day in the store's timezone."
+> **Bob assumes: expiresAt < now. What do the docs mean?**
+> Bob's reading · What SPEC.md says: expiry is the end of the store's local day · Something else… · Ask Bob why
+
+**Every spec check quotes its passage, and LazyCop verifies the quote.** The quoted text must appear in the document word for word, apart from spacing and case, or the card is dropped. This keeps the rule that no card is made up.
+
+Limits: documents are capped at 30,000 characters per task, and spec checks share the card writer's call cap. Open points (ambiguities found at the start) and knowledge checks (questions about the documents) come later.
+
 ## Pacing
 
-Bob waits for the developer only in proportion to the stakes: never for understanding cards, briefly for assumptions, and longer for important decisions. Every wait ends on its own.
+Cards run alongside Bob's work: they keep the developer up to date with what Bob understands, and Bob never waits for one. An answer that differs from Bob's reaches him at his next step, which stops that action with the correction, so he changes course from there. Only two moments hold Bob back, and both end on their own.
 
-| Level | Triggered by                                                          | Bob's behaviour                                                | Ends when                                                    |
-| ----- | --------------------------------------------------------------------- | -------------------------------------------------------------- | ------------------------------------------------------------ |
-| Flow  | Predict, read-the-hunk, most cards                                    | Keeps working; cards queue on the page                         | Card answered, skipped or stale                              |
-| Pause | `declare_step` with an assumption                                     | `declare_step` waits up to 30 s for the card's answer          | Answer arrives, or 30 s pass and Bob continues               |
-| Hold  | `declare_step` with `important: true`, or the developer's Hold button | Edit tools blocked; Bob waits inside `check_in`, 45 s per call | Developer answers or releases, or 3 waits (about 2 min) pass |
+| Level | Triggered by | Bob's behaviour | Ends when |
+| --- | --- | --- | --- |
+| Flow | Every card: before an edit, after an edit, confirmations | Keeps working; the card is a knowledge update, answerable any time | An answer reaches Bob at his next step |
+| Hold | `declare_step` with `important: true`, or the developer's Hold button | Edit tools blocked; Bob waits inside `check_in`, 45 s per call | Developer answers or releases, or 3 waits (about 2 min) pass |
+| Final review | `end_session` with unconfirmed assumptions | Bob waits before closing the task | Developer answers, or 45 s pass and the task closes as is |
 
-On a hold timeout, Bob is told to continue with its plan and name the assumption it relied on in its final message. That message then feeds a hidden-assumption card, so nothing is lost.
+On a hold timeout, Bob is told to continue with its plan and name the assumption it relied on at the end, which puts it in the final review.
+
+A first version paused Bob for up to 30 s on every assumption card so that answers landed before the edit. It was dropped: cards are meant to inform the developer while Bob works, not to gate him, and a correction at his next step still arrives before he builds much on a wrong reading.
 
 Rules that keep the game from becoming the per-action approval Bob users already dislike ([issue #102](https://github.com/IBM/ibm-bob/issues/102)):
 
@@ -119,7 +140,7 @@ Rules that keep the game from becoming the per-action approval Bob users already
 - Stale cards drop out: a card about a step Bob has finished is archived, not shown.
 - Skipping is free, with no penalty.
 
-The numbers are starting points (30 s pause, 45 s per wait, 3 waits) to tune on practice runs; the pause started at 20 s and rose to 30 s after a first test took 23 s to answer a card. The 45 s wait stays under the 60 s default request timeout of Bob's MCP client.
+The numbers (45 s per wait, 3 waits) are starting points to tune on practice runs. The 45 s wait stays under the 60 s default request timeout of Bob's MCP client.
 
 ## Activation
 
@@ -130,7 +151,7 @@ LazyCop is installed once, stays dormant, and becomes active only for a task the
 | Install, once per workspace | `npx lazycop init`                                                                                    | Writes the plugin folder `.bob/plugins/lazycop/`: the LazyCop mode in `custom_modes.yaml` and the MCP server in `mcp.json`. Adds the hook entries to `.bob/settings.json`, because Bob plugins cannot carry hooks |
 | Dormant, the default        | Nothing                                                                                               | Hooks see no active session and exit at once with no output. Nothing tells Bob to call LazyCop's tools. The only standing cost is the MCP tool descriptions Bob sends with each request                           |
 | Invoke                      | `/lazycop <task>`, or switch to the LazyCop mode and type the task                                    | The mode tells Bob to call `start_session` first, then `declare_step` before every edit. `start_session` starts the server if needed, marks this task active and opens the page                                   |
-| Active                      | The task runs, across all of its turns                                                                | Cards, pauses and holds apply only to hook events from the active task. Other Bob tasks are left alone                                                                                                            |
+| Active                      | The task runs, across all of its turns                                                                | Cards and holds apply only to hook events from the active task. Other Bob tasks are left alone                                                                                                            |
 | End                         | Bob calls `end_session` when the task is done, the developer types `/lazycop off`, or leaves the mode | Unconfirmed assumptions get a final review; then the session closes, the page shows the wrap-up, and the hooks go dormant again                                                                                   |
 
 Three rules make this work:
@@ -174,10 +195,10 @@ Five MCP tools and four hook events carry the whole game. Everything else is int
 | Tool                 | Bob calls it                                | Arguments                                                                | Returns                                                                |
 | -------------------- | ------------------------------------------- | ------------------------------------------------------------------------ | ---------------------------------------------------------------------- |
 | `start_session`      | First, when the developer invokes LazyCop   | `task`: the developer's request                                          | The page address and "LazyCop is watching this task"                   |
-| `declare_step`       | Before every file edit                      | `intent`, `files`, optional `assumption`, `alternatives` and `important` | Pending developer messages, or "Continue"; pauses or holds per Pacing  |
+| `declare_step`       | Before every file edit                      | `intent`, `files`, optional `assumption`, `alternatives` and `important` | Pending developer messages, or "Continue"; holds on important decisions  |
 | `check_in`           | When told the developer is reviewing        | `poll` (1, 2, 3… so calls are never identical)                           | Messages, "HOLD", or the timeout instruction                           |
 | `reply_to_developer` | After a disagreement or ask-why             | `text`                                                                   | "Delivered to the developer"                                           |
-| `end_session`        | When the task is done, or on `/lazycop off` | optional `assumptions`: what Bob relied on without confirmation          | "LazyCop stopped watching", or the developer's objections to fix first |
+| `end_session`        | When the task is done, or on `/lazycop off` | optional `assumptions`: what Bob relied on without confirmation; `stop` on `/lazycop off`          | "LazyCop stopped watching", or the developer's objections to fix first |
 
 **Hooks** (command handlers in `.bob/settings.json`, added by `npx lazycop init`, 5 s timeout, fail open, dormant outside an active session):
 
@@ -224,7 +245,7 @@ The page is a single screen: the current card in the centre, what Bob is doing o
 A card's life on the page:
 
 1. It slides in with Bob's claim and, for hunk cards, the 5–15 changed lines.
-2. A countdown shows when Bob is paused or held on it.
+2. A quiet line says what an answer does; a hold or the final review says so on the card.
 3. Picking an option other than Bob's sends the disagreement in one click; Something else opens one text line; Ask why sends immediately.
 4. The card stays open until Bob's `reply_to_developer` arrives, then shows the reply beside the answer.
 
@@ -239,12 +260,12 @@ The Hold button and a free-text box stay available for moments no card covers.
 The design rests on one verified channel (MCP). The open items below are about cost and tuning, not feasibility.
 
 - [ ] What does `declare_step` cost per task? Run the coupon task with and without the rule and compare Bob's consumption summary.
-- [ ] Should holds and pauses exist at all for small tasks, or only above a size threshold?
 - [ ] Can a `/lazycop` command switch Bob into the LazyCop mode by itself? If not, the developer picks the mode, then types the task.
 - [ ] Does Bob's MCP client keep one MCP process per window? Decides whether two windows share one server or need their own port.
 - [ ] Do hooks fire in Plan mode? Needed if interpretation cards should appear before the gate.
 - [ ] Live test of the PreToolUse block and PostToolUse note channels (spike tests B and C).
-- [ ] Tune the pacing numbers (30 s pause, 45 s wait, 3 waits) on practice runs.
+- [ ] Tune the hold numbers (45 s wait, 3 waits) on practice runs.
+- [ ] Should the knowledge agent research by itself: find the relevant documents in the workspace, or check assumptions against the code (fixtures, tests, usages)? Today it only sees documents named with `--docs` or read by Bob.
 - [ ] Which LLM writes card text: Granite on watsonx.ai as the build spec plans, and within what per-run budget?
 
 Next steps, in order:

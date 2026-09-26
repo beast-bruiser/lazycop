@@ -30,12 +30,16 @@ export interface CheckInInput {
 export interface StartSessionInput {
   /** The developer's request, in their words. */
   task: string;
+  /** Workspace paths of documents the developer named for this task (e.g. after --docs). */
+  docs?: string[];
 }
 
 /** end_session — Bob calls this when the task is done, or on `/lazycop off`. */
 export interface EndSessionInput {
   /** Assumptions Bob relied on that the developer never confirmed; each becomes a final card. */
   assumptions?: string[];
+  /** true on `/lazycop off`: stop at once, with no final review. */
+  stop?: boolean;
 }
 
 /** reply_to_developer — Bob sends a reply after a disagreement or ask-why. */
