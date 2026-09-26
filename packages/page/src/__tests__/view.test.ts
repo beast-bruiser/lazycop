@@ -152,3 +152,12 @@ describe("hold on a card", () => {
     expect(view.holdCard).toBeUndefined();
   });
 });
+
+describe("knowledge agent on the page", () => {
+  it("labels spec checks and notes each document in the feed", async () => {
+    const { sourceLabel } = await import("../view.js");
+    expect(sourceLabel({ ...card, source: "spec" })).toBe("Spec check");
+    const view = run(started, { type: "doc", at, path: "SPEC.md", source: "named" });
+    expect(view.feed.at(-1)).toMatchObject({ kind: "doc", text: "LazyCop knows SPEC.md (you named it)" });
+  });
+});

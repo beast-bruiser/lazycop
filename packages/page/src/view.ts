@@ -14,7 +14,7 @@ export interface CardView {
 
 export interface FeedItem {
   at: string;
-  kind: "step" | "read" | "edit" | "reply" | "you" | "hold" | "session";
+  kind: "step" | "read" | "edit" | "reply" | "you" | "hold" | "session" | "doc";
   text: string;
 }
 
@@ -65,6 +65,8 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
         : { ...view, ended: true, hold: false, waiting: null, feed: feed("session", "LazyCop stopped watching") };
     case "hold":
       return { ...view, hold: event.on, holdCard: event.on ? event.card : undefined, feed: feed("hold", event.on ? "Bob is on hold" : `Hold released (${event.reason})`) };
+    case "doc":
+      return { ...view, feed: feed("doc", `LazyCop knows ${event.path} (${event.source === "named" ? "you named it" : "Bob read it"})`) };
     case "waiting":
       return { ...view, waiting: event.on ? { until: event.until, card: event.card } : null };
     case "card": {
@@ -116,7 +118,7 @@ export function waitingQuestion(view: ViewState): { card?: string; text?: string
 
 /** Where a card came from, as the page labels it. */
 export function sourceLabel(card: CardRecord): string {
-  return { declare_step: "Before an edit", diff: "After an edit", end_session: "Final review", confirm: "Checking your correction" }[card.source] ?? "Question";
+  return { declare_step: "Before an edit", diff: "After an edit", end_session: "Final review", confirm: "Checking your correction", spec: "Spec check" }[card.source] ?? "Question";
 }
 
 /** Answered cards, latest answer first: the first stays open under the current card, the rest fold away. */

@@ -31,7 +31,8 @@ customModes:
     whenToUse: Only when the developer invokes LazyCop with /lazycop or picks this mode.
     customInstructions: |-
       1. At the start of a task, or whenever a LazyCop tool says it is not watching, call the
-         lazycop tool start_session with the developer's request as task.
+         lazycop tool start_session with the developer's request as task. If the request names
+         documents after --docs, pass those paths as docs and leave the --docs part out of task.
       2. Before every file edit, call declare_step with one sentence of intent, the files, and the
          main assumption the edit relies on, including what happens in edge cases (a missing
          field, an empty list, a timezone). Add alternatives: 2 other readings a reasonable
@@ -55,7 +56,7 @@ customModes:
 
 export const COMMAND_MD = `---
 description: Run a task with LazyCop watching, or "/lazycop off" to stop
-argument-hint: <task> | off
+argument-hint: <task> [--docs SPEC.md,docs/api.md] | off
 ---
 <!-- ${MARKER}. Remove with \`lazycop uninstall\`. -->
 If the request below is exactly "off": call the lazycop tool end_session with stop: true, say
@@ -64,7 +65,8 @@ that LazyCop stopped watching, and do nothing else.
 Otherwise:
 
 1. Switch to the LazyCop mode (slug \`lazycop\`) if you are not in it.
-2. Call the lazycop tool start_session with the request below as task.
+2. Call the lazycop tool start_session with the request below as task. If it ends with
+   --docs followed by comma-separated paths, pass those paths as docs and leave them out of task.
 3. Do the task by the LazyCop mode's rules: declare_step before every file edit, address
    developer messages first and answer them with reply_to_developer, check_in while on hold,
    and end_session when the task is done, passing the assumptions the developer did not confirm.

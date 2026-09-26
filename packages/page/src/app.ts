@@ -19,6 +19,7 @@ async function post(path: string, body: unknown): Promise<void> {
 function optionLabel(c: CardView, id: string, text: string): string {
   if (id === "bob") return c.card.source === "confirm" ? "Yes, that's what I meant" : `Yes: ${text}`;
   if (id === "other" && c.card.source === "confirm") return "Not quite…";
+  if (id === "spec" && c.card.quote) return `What ${c.card.quote.path} says: ${text}`;
   if (id === "other") return "Something else…";
   if (id === "ask_why") return "Ask Bob why";
   return text;
@@ -60,6 +61,7 @@ function renderCurrent(c: CardView): string {
   return `<section class="card current source-${esc(c.card.source)}" data-countdown="${esc(c.card.id)}">
     <p class="chip">${esc(sourceLabel(c.card))}</p>
     ${corrected ? `<p class="about">You told Bob: “${esc(corrected)}”</p>` : ""}
+    ${c.card.quote ? `<blockquote class="quote"><b>${esc(c.card.quote.path)}</b> “${esc(c.card.quote.text)}”</blockquote>` : ""}
     <h2>${esc(c.card.question)}</h2>
     <div class="cd">${countdown(c)}</div>
     <div class="options">${options}</div>

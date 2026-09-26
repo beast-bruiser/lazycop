@@ -3,7 +3,8 @@ import type { StoreState } from "./store.js";
 import { setHold, waitForDeveloper } from "./store.js";
 import { appendRecord } from "./logger.js";
 import { startSession, endSession } from "./session.js";
-import { addAlternatives, makeCard, noteDelivered, reviewBeforeEnd } from "./review.js";
+import { addAlternatives, makeCard, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
+import { loadNamedDocs } from "./docs.js";
 
 export const HOLD_WAIT_MS = 45_000;
 export const MAX_HOLD_POLLS = 3;
@@ -21,10 +22,12 @@ export async function onMcp(
   push: Push,
 ): Promise<string> {
   if (tool === "start_session") {
-    const { task } = args as unknown as StartSessionInput;
+    const { task, docs } = args as unknown as StartSessionInput;
     startSession(store, String(task ?? ""));
     push({ type: "session", on: true, task: store.session!.task });
-    return `LazyCop is watching this task. The developer follows along at ${pageUrl()}. Call declare_step before every file edit.`;
+    const loaded = loadNamedDocs(store, store.session!.cwd, docs, push);
+    const named = loaded.length ? ` LazyCop checks your assumptions against: ${loaded.join(", ")}.` : "";
+    return `LazyCop is watching this task. The developer follows along at ${pageUrl()}. Call declare_step before every file edit.${named}`;
   }
 
   if (!store.session) return "LazyCop is not watching this task. Continue without it.";
@@ -89,6 +92,7 @@ export async function onMcp(
     push({ type: "card", card });
     // Bob's own alternatives come first; the card writer, if configured, fills in only when he gave none.
     if (!card.options.some((o) => o.id.startsWith("alt-"))) void addAlternatives(store, card, declareArgs.intent, push);
+    void specCheck(store, card, push);
   }
 
   if (tool === "declare_step" && declareArgs.important && !store.hold) {

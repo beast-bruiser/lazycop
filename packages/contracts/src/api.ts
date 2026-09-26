@@ -108,6 +108,15 @@ export interface SseWaitingEvent {
   card?: string;
 }
 
+/** The knowledge agent took in a document for this task. */
+export interface SseDocEvent {
+  type: "doc";
+  at: string;
+  path: string;
+  /** "named" by the developer, or read by Bob. */
+  source: "named" | "bob";
+}
+
 /** Bob replied to the developer. */
 export interface SseReplyEvent {
   type: "reply";
@@ -128,7 +137,8 @@ export type SseEvent =
   | SseQueuedEvent
   | SseDeliveredEvent
   | SseReplyEvent
-  | SseWaitingEvent;
+  | SseWaitingEvent
+  | SseDocEvent;
 
 /** An SSE event before the server stamps its `at` time. */
 export type SseEventInput = SseEvent extends infer E ? (E extends SseEvent ? Omit<E, "at"> : never) : never;

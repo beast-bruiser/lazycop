@@ -100,6 +100,25 @@ Bob's claim is always Bob's own words, and so are the alternatives: `declare_ste
 
 Hidden-assumption cards matter most for catching: in both coupon runs, the rule with the biggest product impact was never declared.
 
+## Knowledge agent
+
+The knowledge agent reads the task's documents and checks Bob's assumptions against them, so a mistake is caught with the passage that proves it. It runs in LazyCop's server on Granite (watsonx.ai), never in Bob, and only when watsonx credentials are set.
+
+**Documents come from two places:**
+
+- **Named by the developer:** `/lazycop <task> --docs SPEC.md,docs/api.md`. Bob passes the paths to `start_session`, and LazyCop reads them from the workspace. Paths outside the workspace are refused.
+- **Read by Bob:** when Bob opens a document-like file (`.md`, `.txt`, `.rst`, `.adoc`, or a name with spec, readme, requirement or design in it), the after-read hook already carries its text, and LazyCop keeps it.
+
+**The spec check** is the first question it asks. For each assumption Bob declares, Granite compares it with the documents. If a passage contradicts it or makes it more precise, a **Spec check** card appears beside the assumption card:
+
+> SPEC CHECK · SPEC.md: "Coupons expire at the end of the day in the store's timezone."
+> **Bob assumes: expiresAt < now. What do the docs mean?**
+> Bob's reading · What SPEC.md says: expiry is the end of the store's local day · Something else… · Ask Bob why
+
+**Every spec check quotes its passage, and LazyCop verifies the quote.** The quoted text must appear in the document word for word, apart from spacing and case, or the card is dropped. This keeps the rule that no card is made up.
+
+Limits: documents are capped at 30,000 characters per task, and spec checks share the card writer's call cap. Open points (ambiguities found at the start) and knowledge checks (questions about the documents) come later.
+
 ## Pacing
 
 Cards run alongside Bob's work: they keep the developer up to date with what Bob understands, and Bob never waits for one. An answer that differs from Bob's reaches him at his next step, which stops that action with the correction, so he changes course from there. Only two moments hold Bob back, and both end on their own.
@@ -246,6 +265,7 @@ The design rests on one verified channel (MCP). The open items below are about c
 - [ ] Do hooks fire in Plan mode? Needed if interpretation cards should appear before the gate.
 - [ ] Live test of the PreToolUse block and PostToolUse note channels (spike tests B and C).
 - [ ] Tune the hold numbers (45 s wait, 3 waits) on practice runs.
+- [ ] Should the knowledge agent research by itself: find the relevant documents in the workspace, or check assumptions against the code (fixtures, tests, usages)? Today it only sees documents named with `--docs` or read by Bob.
 - [ ] Which LLM writes card text: Granite on watsonx.ai as the build spec plans, and within what per-run budget?
 
 Next steps, in order:

@@ -14,6 +14,7 @@ import { loadEnvFile } from "../env.js";
 const fakeWriter = (over: Partial<CardWriter> = {}): CardWriter => ({
   alternatives: async () => ["expires at the end of the local day", "expires after a fixed number of days"],
   hiddenAssumption: async () => "a coupon without expiresOn never expires",
+  specCheck: async () => null,
   ...over,
 });
 const cards = (events: SseEventInput[]) => events.filter((e): e is Extract<SseEventInput, { type: "card" }> => e.type === "card").map((e) => e.card);

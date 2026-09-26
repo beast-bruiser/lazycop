@@ -30,6 +30,8 @@ export interface CheckInInput {
 export interface StartSessionInput {
   /** The developer's request, in their words. */
   task: string;
+  /** Workspace paths of documents the developer named for this task (e.g. after --docs). */
+  docs?: string[];
 }
 
 /** end_session — Bob calls this when the task is done, or on `/lazycop off`. */

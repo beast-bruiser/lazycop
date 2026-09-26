@@ -10,6 +10,7 @@ import { onHook } from "./hook.js";
 import { onMcp, pageUrl } from "./mcp.js";
 import { recordAnswer, reviewEdit } from "./review.js";
 import { loadEnvFile } from "./env.js";
+import { addDoc, fileText, isDocPath } from "./docs.js";
 import { resolveCard } from "./cards.js";
 
 const PORT = Number(process.env.LAZYCOP_PORT ?? 4747);
@@ -35,6 +36,13 @@ function servePage(res: http.ServerResponse, path: string): void {
 
 const store = createStore();
 const clients = new Set<http.ServerResponse>();
+
+/** Documents Bob opens become part of the task's knowledge, as he read them. */
+function keepDocBobRead(payload: HookPayload): void {
+  if (payload.hook_event_name !== "PostToolUse" || payload.tool_name !== "read_file") return;
+  const path = (payload.tool_input as { path?: unknown } | null)?.path;
+  if (typeof path === "string" && isDocPath(path)) addDoc(store, path, fileText(payload.tool_response), "bob", push);
+}
 
 const HISTORY_LIMIT = 500;
 
@@ -116,6 +124,7 @@ export function createServer(): http.Server {
         if (isWatched(store, payload.session_id) && payload.hook_event_name !== "PreToolUse") {
           push({ type: "hook", seq: ++store.seq, payload });
           void reviewEdit(store, payload, push);
+          keepDocBobRead(payload);
         }
         return json(res, result);
       }

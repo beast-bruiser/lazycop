@@ -23,7 +23,10 @@ const tools = [
       "Call first, and only when the developer invokes LazyCop (/lazycop or the LazyCop mode). LazyCop then watches this task and opens the developer's page.",
     inputSchema: {
       type: "object",
-      properties: { task: { type: "string", description: "The developer's request, in their words." } },
+      properties: {
+        task: { type: "string", description: "The developer's request, in their words, without any --docs part." },
+        docs: { type: "array", items: { type: "string" }, description: "Workspace paths the developer named after --docs (comma separated), e.g. [\"SPEC.md\"]. LazyCop checks your assumptions against them." },
+      },
       required: ["task"],
     },
   },

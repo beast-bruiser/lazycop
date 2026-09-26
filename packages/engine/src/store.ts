@@ -28,6 +28,8 @@ export interface StoreState {
   lastIntent?: string;
   /** A card whose correction Bob has received; his next assumption card confirms it. */
   confirmFor?: string;
+  /** The task's documents by workspace path, for the knowledge agent. */
+  docs: Map<string, string>;
   waiters: Set<() => void>;
 }
 
@@ -40,6 +42,7 @@ export function createStore(): StoreState {
     pending: [],
     cards: new Map(),
     history: [],
+    docs: new Map(),
     waiters: new Set(),
   };
 }
@@ -60,6 +63,7 @@ export function clearSession(store: StoreState): void {
   store.lastMessageCard = undefined;
   store.lastReplyCard = undefined;
   store.confirmFor = undefined;
+  store.docs.clear();
   wake(store);
 }
 
