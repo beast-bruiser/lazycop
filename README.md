@@ -144,3 +144,6 @@ Rules the code must keep: [`docs/reference/architecture.md`](docs/reference/arch
 
 The page's music ([`packages/page/assets/audio/`](packages/page/assets/audio/): `preparation.mp3` and
 `action.mp3`) was generated with [Suno AI](https://suno.com).
+
+The artwork (the soldier, portrait, unit and map images in [`packages/page/assets/`](packages/page/assets/) and
+the logo in [`packages/page/img/`](packages/page/img/)) was generated with an AI image generator.
