@@ -144,6 +144,10 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
     }
     case "report":
       return { ...view, report: event.report };
+    case "stale": {
+      const staleIds = new Set(event.ids);
+      return { ...view, cards: view.cards.filter((c) => !staleIds.has(c.card.id)) };
+    }
     default:
       return view;
   }

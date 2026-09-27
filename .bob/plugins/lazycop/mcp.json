@@ -3,7 +3,7 @@
     "lazycop": {
       "command": "node",
       "args": [
-        "/Users/truongvinh/lazycop/packages/engine/dist/mcp-server.js"
+        "${workspaceFolder}/packages/engine/dist/mcp-server.js"
       ],
       "alwaysAllow": [
         "start_session",

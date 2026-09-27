@@ -3,8 +3,8 @@ import type { StoreState } from "./store.js";
 import { setHold, waitForDeveloper } from "./store.js";
 import { appendRecord } from "./logger.js";
 import { startSession, endSession } from "./session.js";
-import { makeCard, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
-import { loadNamedDocs } from "./docs.js";
+import { makeCard, markStale, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
+import { alreadySettled, loadNamedDocs } from "./docs.js";
 import { definedSkills } from "./skills.js";
 import { buildReport, parseChanges, reviewRisks, sendBack, unreportedFiles } from "./report.js";
 
@@ -47,7 +47,15 @@ export async function onMcp(
     if (missing.length) return sendBack(missing);
     // The risk review runs during the final review's wait, so end_session stays inside Bob's MCP timeout.
     const risks = reviewRisks(store.usage, store.session.task, summary, store.session.cwd);
-    const list = (Array.isArray(assumptions) ? assumptions : []).filter((a): a is string => typeof a === "string" && a.trim() !== "").slice(0, 5);
+    const rawList = (Array.isArray(assumptions) ? assumptions : []).filter((a): a is string => typeof a === "string" && a.trim() !== "");
+    // Drop assumptions the developer already settled on a card this session, even if Bob words them
+    // differently, and repeats within this same list.
+    // One final review per task: after Bob fixes the objections, his next end_session closes without re-asking.
+    const list: string[] = [];
+    for (const a of store.finalReviewDone ? [] : rawList) {
+      if (list.length < 5 && !alreadySettled(a, [...store.answeredClaims, ...list])) list.push(a);
+    }
+    if (list.length > 0) store.finalReviewDone = true;
     const objections = await reviewBeforeEnd(store, list, HOLD_WAIT_MS, push);
     // Answers still waiting for Bob's next step would be lost if the task closed now: that step is this one.
     const waiting = store.pending.splice(0).map((m) => {
@@ -90,16 +98,21 @@ export async function onMcp(
   if (tool === "declare_step" && declareArgs.assumption) {
     // The first assumption after Bob received a correction restates it: ask whether he got it right.
     const confirms = store.confirmFor;
+    // A correction the developer took from the documents needs no spec check: they just read it there.
+    const confirmsSpec = confirms !== undefined && store.confirmForPick === "spec";
     store.confirmFor = undefined;
+    store.confirmForPick = undefined;
     const card = confirms
       ? { ...makeCard(declareArgs.assumption, "assumption", "confirm", declareArgs.alternatives), confirms }
       : makeCard(declareArgs.assumption, "assumption", "declare_step", declareArgs.alternatives);
     createdCard = card.id;
+    // Mark older unanswered before-an-edit and checking-your-correction cards (and their spec checks) stale.
+    markStale(store, card.id, push);
     store.cards.set(card.id, card);
     appendRecord(card);
     // Cards run alongside Bob's work: he never waits for one. An answer reaches him at his next step.
     push({ type: "card", card });
-    void specCheck(store, card, push);
+    if (!confirmsSpec) void specCheck(store, card, push);
   }
 
   if (tool === "declare_step" && declareArgs.important && !store.hold) {

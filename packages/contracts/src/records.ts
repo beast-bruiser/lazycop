@@ -8,6 +8,7 @@ import type { ReportedChange } from "./mcp.js";
 
 export type LazycopRecord =
   | SessionRecord
+  | StaleRecord
   | EventRecord
   | CardRecord
   | AnswerRecord
@@ -22,6 +23,13 @@ export interface SessionRecord {
   on: boolean;
   id?: string;
   task?: string;
+}
+
+/** Cards dropped unanswered because Bob moved on to a new assumption: the developer skipped them. */
+export interface StaleRecord {
+  kind: "stale";
+  ts: string;
+  ids: string[];
 }
 
 /** A Bob tool call event logged from a hook. */

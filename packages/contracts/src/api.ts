@@ -163,6 +163,14 @@ export interface SseReportEvent {
   report: Omit<ReportRecord, "kind" | "ts">;
 }
 
+/** Cards that are no longer relevant because Bob has declared a new assumption. */
+export interface SseStaleEvent {
+  type: "stale";
+  at: string;
+  /** IDs of the cards that became stale. */
+  ids: string[];
+}
+
 export type SseEvent =
   | SseStateEvent
   | ((
@@ -178,6 +186,7 @@ export type SseEvent =
       | SseWaitingEvent
       | SseDocEvent
       | SseReportEvent
+      | SseStaleEvent
     ) & FromAgent);
 
 /** An SSE event before the server stamps its `at` time. */
@@ -222,4 +231,6 @@ export interface PendingMessage {
   card?: string;
   /** true when the message corrects Bob's reading, so his next assumption should restate it. */
   correction?: boolean;
+  /** The developer's pick on the card, when this is a correction (used to set confirmForPick). */
+  pick?: string;
 }

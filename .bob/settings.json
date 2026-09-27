@@ -17,7 +17,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "command": "node \"packages/engine/dist/hook-script.js\"",
             "timeout": 5
           }
         ]
@@ -29,7 +29,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "command": "node \"packages/engine/dist/hook-script.js\"",
             "timeout": 5
           }
         ]
@@ -40,7 +40,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "command": "node \"packages/engine/dist/hook-script.js\"",
             "timeout": 5
           }
         ]
@@ -51,7 +51,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "node \"/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js\"",
+            "command": "node \"packages/engine/dist/hook-script.js\"",
             "timeout": 5
           }
         ]

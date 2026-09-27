@@ -86,3 +86,13 @@ describe("end_session never drops an answer still on its way to Bob", () => {
     expect(store.confirmFor).toBe(card.id);
   });
 });
+
+describe("spec findings", () => {
+  it("a passage that only repeats Bob's assumption is not a finding", async () => {
+    const { parseFinding } = await import("../writer.js");
+    const base = { path: "SPEC.md", quote: "A coupon without an expiry date is rejected", reading: "rejected" };
+    expect(parseFinding(JSON.stringify({ relation: "same", ...base }))).toBeNull();
+    expect(parseFinding(JSON.stringify({ relation: "contradicts", ...base }))).toMatchObject(base);
+    expect(parseFinding(JSON.stringify({ relation: "adds_detail", ...base }))).toMatchObject(base);
+  });
+});

@@ -4,7 +4,7 @@ import type { Push } from "./mcp.js";
 import type { Agent, Squad } from "./squad.js";
 import { agentOfCard, isWatching, latest, tagged, watching, withRecords } from "./squad.js";
 import { setHold, wake } from "./store.js";
-import { recordAnswer } from "./review.js";
+import { closeSettledReviews, recordAnswer } from "./review.js";
 import { resolveCard } from "./cards.js";
 
 export type Reply = [status: number, body: unknown];
@@ -59,7 +59,10 @@ function answer(squad: Squad, a: AnswerBody, push: Push): Reply {
   const endsHold = store.hold && store.holdCard === card.id;
   if (!resolveCard(a.card, answer)) {
     // The pause is over: queue the answer so Bob gets it at its next tool call.
-    withRecords(agent, () => recordAnswer(store, card, answer, "block"));
+    withRecords(agent, () => {
+      recordAnswer(store, card, answer, "block");
+      closeSettledReviews(store, send);
+    });
     for (const m of store.pending.filter((p) => p.card === card.id)) {
       send({ type: "queued", id: m.id, text: m.text, channel: m.channel, card: card.id, fromAnswer: true });
     }

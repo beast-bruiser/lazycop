@@ -14,6 +14,7 @@ export type {
 export type {
   LazycopRecord,
   SessionRecord,
+  StaleRecord,
   EventRecord,
   CardRecord,
   CardOption,
@@ -45,6 +46,7 @@ export type {
   SseWaitingEvent,
   SseDocEvent,
   SseReportEvent,
+  SseStaleEvent,
   SseEventInput,
   QueueBody,
   HoldBody,

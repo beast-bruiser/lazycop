@@ -27,6 +27,15 @@ export function waitForAnswer(cardId: string, ms: number): Promise<AnswerRecord 
   });
 }
 
+/** Releases one waiting card as if its time had run out: no answer, no objection. */
+export function cancelCard(cardId: string): void {
+  const waiter = cardWaiters.get(cardId);
+  if (!waiter) return;
+  cardWaiters.delete(cardId);
+  clearTimeout(waiter.timer);
+  waiter.resolve(null);
+}
+
 /** Releases every paused declare_step, as if its pause had run out. */
 export function cancelAllCards(): void {
   for (const [id, waiter] of cardWaiters) {

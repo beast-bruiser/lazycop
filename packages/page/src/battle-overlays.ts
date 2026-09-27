@@ -1,6 +1,6 @@
 // The dialogs over the mission screen's tactical map: the battle card, Bob's question and the end screen.
 import type { CardView } from "./view.js";
-import { currentCard, waitingQuestion } from "./view.js";
+import { currentCard, sourceLabel, waitingQuestion } from "./view.js";
 import { esc, secondsLeft, ui } from "./page-state.js";
 import { renderMissionReport } from "./mission-report.js";
 
@@ -32,16 +32,21 @@ function renderBattleDialog(): string {
     </button>`;
   }).join("");
 
+  // The page is redrawn on every event; the entrance plays once per card, not on each redraw.
+  const settled = ui.shownCard === now.card.id;
+  ui.shownCard = now.card.id;
+  const title = now.card.source === "declare_step" ? "ENEMY INTEL" : sourceLabel(now.card).toUpperCase();
+
   const thread = now.thread.map((m) =>
     `<p style="font-size:11px;margin-top:4px;color:${m.from === "bob" ? "var(--c-cyan)" : "var(--c-green)"}">
       <b>${m.from === "bob" ? "👮 BOB:" : "🧑 YOU:"}</b> ${esc(m.text)}</p>`
   ).join("");
 
-  return `<div id="battle-overlay" data-countdown="${esc(now.card.id)}">
+  return `<div id="battle-overlay" class="${settled ? "settled" : ""}" data-countdown="${esc(now.card.id)}">
     <div id="battle-box">
       <div class="battle-title-bar">
         <span class="blink">▶</span>
-        <span class="ttl">ENEMY INTEL — CONFIRM OR CHALLENGE</span>
+        <span class="ttl">${esc(title)} — CONFIRM OR CHALLENGE</span>
       </div>
       <div class="battle-body">
         <p class="battle-q">${esc(now.card.question)}</p>

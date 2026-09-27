@@ -555,6 +555,7 @@ img.art { image-rendering: auto !important; object-fit: contain; }
   animation: battle-rise 0.2s cubic-bezier(0,0,0.2,1);
 }
 @keyframes battle-rise { from { transform: translateY(20px); opacity:0; } to { transform: none; opacity:1; } }
+#battle-overlay.settled #battle-box { animation: none; }
 
 .battle-title-bar {
   background: linear-gradient(90deg, var(--c-border2) 0%, #1a2a5a 100%);

@@ -50,10 +50,35 @@ export function loadNamedDocs(store: StoreState, cwd: string | undefined, paths:
   return loaded;
 }
 
+/** Text compared the way a reader would: case, spacing, Markdown and curly quotes do not matter. */
+export function normText(s: string): string {
+  return s.toLowerCase().replace(/[*_`#>]/g, "").replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[\s-]+/g, " ").trim();
+}
+
 /** True when `quote` appears in `text`, ignoring spacing and case: the proof a spec check is not made up. */
 export function quoteAppears(text: string, quote: string): boolean {
-  const norm = (s: string) =>
-    s.toLowerCase().replace(/[*_`#>]/g, "").replace(/[“”]/g, '"').replace(/[‘’]/g, "'").replace(/[\s-]+/g, " ").trim();
-  const q = norm(quote);
-  return q.length >= 15 && norm(text).includes(q);
+  const q = normText(quote);
+  return q.length >= 15 && normText(text).includes(q);
+}
+
+const STOPWORDS = new Set(["the", "and", "for", "with", "that", "this", "are", "was", "has", "its", "per", "not", "any", "all", "but", "from", "into", "when", "then", "than", "only", "also", "always", "which"]);
+
+/** The meaningful words of a claim, singular, for telling whether two claims say the same thing. */
+export function claimWords(s: string): Set<string> {
+  return new Set(
+    normText(s).split(/[^a-z0-9.]+/).map((w) => w.replace(/\.+$/, "").replace(/s$/, "")).filter((w) => w.length >= 3 && !STOPWORDS.has(w)),
+  );
+}
+
+/** True when most of `claim`'s words are already in one of `answered`: the point was already settled. */
+export function alreadySettled(claim: string, answered: Iterable<string>, share = 0.6): boolean {
+  const words = claimWords(claim);
+  if (words.size === 0) return false;
+  for (const other of answered) {
+    const theirs = claimWords(other);
+    let common = 0;
+    for (const w of words) if (theirs.has(w)) common++;
+    if (common / words.size >= share) return true;
+  }
+  return false;
 }
