@@ -3,6 +3,7 @@
 import type { SseEvent } from "@lazycops/contracts";
 import { currentCard } from "./view.js";
 import { disconnected, focusedView, reduceSquad } from "./squad-view.js";
+import { hideSplash } from "./splash.js";
 import { esc, focusedAgent, onRender, post, refocus, secondsLeft, ui } from "./page-state.js";
 import { sfxAgree, sfxChallenge, sfxEdit, sfxMissionClear, sfxQuestion, toggleMute } from "./audio.js";
 import { syncMusic } from "./music.js";
@@ -130,7 +131,7 @@ stream.onmessage = (e) => {
   refocus();
   const nextView = ui.view;
   // A mission that ended before this page loaded opens on the briefing, not its wrap-up.
-  if (!loaded) { loaded = true; if (nextView.ended) { ui.leftEnded = true; render(); return; } }
+  if (!loaded) { loaded = true; hideSplash(); if (nextView.ended) { ui.leftEnded = true; render(); return; } }
   if (nextView.cards.length > prevView.cards.length) sfxQuestion();
   const prevEdits = prevView.trail.filter((t) => t.kind === "edit").length;
   const nextEdits = nextView.trail.filter((t) => t.kind === "edit").length;
@@ -138,5 +139,5 @@ stream.onmessage = (e) => {
   if (nextView.ended && !prevView.ended) sfxMissionClear();
   render();
 };
-stream.onerror = () => { ui.squad = disconnected(ui.squad); refocus(); render(); };
+stream.onerror = () => { hideSplash(); ui.squad = disconnected(ui.squad); refocus(); render(); };
 render();

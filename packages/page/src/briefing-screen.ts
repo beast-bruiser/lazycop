@@ -20,9 +20,8 @@ function renderUnitProfile(): string {
   const squad = ui.squad.agents.length;
 
   return `<div id="unit-profile">
-    <div class="game-logo"><img src="/img/logo.png" alt="LazyCop"></div>
     ${renderSquadBar("squad-bar unit-tabs")}
-    <div class="panel-header">UNIT PROFILE</div>
+    <div class="panel-header">AGENT PROFILE</div>
     <div class="unit-portrait-row">
       <div class="unit-portrait"><img class="${imgClass("portrait")}" src="${unitPortrait(n)}" alt=""></div>
       <div class="unit-info">
