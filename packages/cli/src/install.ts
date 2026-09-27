@@ -1,11 +1,28 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
-import { dirname, join } from "node:path";
+import { dirname, isAbsolute, join, relative, sep } from "node:path";
 import { COMMAND_MD, HOOK_EVENTS, HOOK_SCRIPT_SUFFIX, MARKER, MODE_YAML, hookCommand, mcpConfig } from "./templates.js";
 
 /** Absolute paths to the built engine entry points the workspace will run. */
 export interface EnginePaths {
   hookScript: string;
   mcpServer: string;
+}
+
+/** Returns the hook-command path and MCP arg to use for the given engine inside workspace.
+ *  When the engine lives inside the workspace, paths are made portable:
+ *    hookScript → workspace-relative (e.g. "packages/engine/dist/hook-script.js")
+ *    mcpServer  → "${workspaceFolder}/packages/engine/dist/mcp-server.js"
+ *  Otherwise the original absolute paths are returned unchanged. */
+function portablePaths(workspace: string, engine: EnginePaths): { hookPath: string; mcpPath: string } {
+  // Forward slashes on every OS; an absolute result (another drive on Windows) is not inside.
+  const relHook = relative(workspace, engine.hookScript).split(sep).join("/");
+  const relMcp = relative(workspace, engine.mcpServer).split(sep).join("/");
+  const within = (rel: string) => rel !== "" && !rel.startsWith("..") && !isAbsolute(rel);
+  const inside = within(relHook) && within(relMcp);
+  return {
+    hookPath: inside ? relHook : engine.hookScript,
+    mcpPath: inside ? `\${workspaceFolder}/${relMcp}` : engine.mcpServer,
+  };
 }
 
 interface HookHandler {
@@ -70,16 +87,17 @@ export function install(workspace: string, engine: EnginePaths): string[] {
     throw new Error(`${command} already exists and was not written by LazyCop; rename it first.`);
   }
   const settings = withoutOurHooks(readSettings(settingsFile(workspace)));
+  const { hookPath, mcpPath } = portablePaths(workspace, engine);
 
   const hooks = { ...(settings.hooks ?? {}) };
   for (const event of HOOK_EVENTS) {
-    const handler = { type: "command", command: hookCommand(engine.hookScript), timeout: 5 };
+    const handler = { type: "command", command: hookCommand(hookPath), timeout: 5 };
     const group: HookGroup = event === "PreToolUse" || event === "PostToolUse" ? { matcher: "*", hooks: [handler] } : { hooks: [handler] };
     hooks[event] = [...(hooks[event] ?? []), group];
   }
 
   write(join(pluginDir(workspace), "custom_modes.yaml"), MODE_YAML);
-  write(join(pluginDir(workspace), "mcp.json"), mcpConfig(engine.mcpServer));
+  write(join(pluginDir(workspace), "mcp.json"), mcpConfig(mcpPath));
   write(command, COMMAND_MD);
   write(settingsFile(workspace), JSON.stringify({ ...settings, hooks }, null, 2) + "\n");
   return [

@@ -18,6 +18,8 @@ export const ui = {
   inMission: false,
   /** The developer left an ended mission's wrap-up; a new task clears it. */
   leftEnded: false,
+  /** The card the battle dialog last showed: only a different card replays its entrance. */
+  shownCard: null as string | null,
 };
 
 /** Recomputes the focused view after the squad or the focus changes. */

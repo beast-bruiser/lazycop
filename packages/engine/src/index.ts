@@ -1,8 +1,8 @@
 export { createServer, startServer } from "./server.js";
 export { onHook } from "./hook.js";
 export { onMcp, pageUrl, HOLD_WAIT_MS, MAX_HOLD_POLLS } from "./mcp.js";
-export { makeCard, recordAnswer, answerToMessage, addAlternatives, reviewEdit, reviewBeforeEnd, specCheck, EDIT_TOOLS } from "./review.js";
-export { addDoc, fileText, isDocPath, loadNamedDocs, quoteAppears, DOC_BUDGET } from "./docs.js";
+export { makeCard, recordAnswer, answerToMessage, addAlternatives, reviewEdit, reviewBeforeEnd, specCheck, markStale, EDIT_TOOLS } from "./review.js";
+export { addDoc, alreadySettled, claimWords, fileText, isDocPath, loadNamedDocs, normText, quoteAppears, DOC_BUDGET } from "./docs.js";
 export { cardWriter, setCardWriter, parseList, parseFinding } from "./writer.js";
 export type { CardWriter, SpecFinding } from "./writer.js";
 export { resolveCard, waitForAnswer, cancelAllCards } from "./cards.js";

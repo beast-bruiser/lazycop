@@ -12,13 +12,29 @@ const settings = () => JSON.parse(readFileSync(join(ws, ".bob", "settings.json")
 const ourHandlers = (s: { hooks?: Record<string, { hooks: { command?: string }[] }[]> }) =>
   Object.values(s.hooks ?? {}).flat().flatMap((g) => g.hooks).filter((h) => h.command?.includes("/engine/dist/hook-script.js"));
 
-beforeEach(() => {
-  ws = mkdtempSync(join(tmpdir(), "lazycop-ws-"));
+/** engine in a separate tmpdir (outside the workspace) */
+function makeExternalEngine(): EnginePaths {
   const dist = join(mkdtempSync(join(tmpdir(), "lazycop-repo-")), "packages", "engine", "dist");
   mkdirSync(dist, { recursive: true });
-  engine = { hookScript: join(dist, "hook-script.js"), mcpServer: join(dist, "mcp-server.js") };
-  writeFileSync(engine.hookScript, "");
-  writeFileSync(engine.mcpServer, "");
+  const e = { hookScript: join(dist, "hook-script.js"), mcpServer: join(dist, "mcp-server.js") };
+  writeFileSync(e.hookScript, "");
+  writeFileSync(e.mcpServer, "");
+  return e;
+}
+
+/** engine inside the workspace at the canonical sub-path */
+function makeInternalEngine(workspace: string): EnginePaths {
+  const dist = join(workspace, "packages", "engine", "dist");
+  mkdirSync(dist, { recursive: true });
+  const e = { hookScript: join(dist, "hook-script.js"), mcpServer: join(dist, "mcp-server.js") };
+  writeFileSync(e.hookScript, "");
+  writeFileSync(e.mcpServer, "");
+  return e;
+}
+
+beforeEach(() => {
+  ws = mkdtempSync(join(tmpdir(), "lazycop-ws-"));
+  engine = makeExternalEngine();
 });
 
 describe("lazycop init", () => {
@@ -68,6 +84,46 @@ describe("lazycop init", () => {
   it("stops when the engine is not built", () => {
     expect(() => install(ws, { hookScript: "/nope/hook-script.js", mcpServer: "/nope/mcp-server.js" })).toThrow(/not built/);
   });
+
+  it("writes workspace-relative paths when the engine is inside the workspace", () => {
+    const internalEngine = makeInternalEngine(ws);
+    install(ws, internalEngine);
+    const hook = ourHandlers(settings())[0].command as string;
+    expect(hook).toBe(`node "packages/engine/dist/hook-script.js"`);
+    const mcp = JSON.parse(readFileSync(join(ws, ".bob/plugins/lazycop/mcp.json"), "utf8"));
+    expect(mcp.mcpServers.lazycop.args[0]).toBe("${workspaceFolder}/packages/engine/dist/mcp-server.js");
+  });
+
+  it("writes absolute paths when the engine is outside the workspace", () => {
+    install(ws, engine);
+    const hook = ourHandlers(settings())[0].command as string;
+    expect(hook).toBe(`node "${engine.hookScript}"`);
+    const mcp = JSON.parse(readFileSync(join(ws, ".bob/plugins/lazycop/mcp.json"), "utf8"));
+    expect(mcp.mcpServers.lazycop.args[0]).toBe(engine.mcpServer);
+  });
+
+  it("replaces a foreign absolute-path hook with the relative form on re-init inside workspace", () => {
+    // Simulate settings.json written on another machine with absolute paths
+    mkdirSync(join(ws, ".bob"), { recursive: true });
+    const foreignCommand = `node "/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js"`;
+    const foreignSettings = {
+      hooks: {
+        PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: foreignCommand, timeout: 5 }] }],
+        PostToolUse: [{ matcher: "*", hooks: [{ type: "command", command: foreignCommand, timeout: 5 }] }],
+        UserPromptSubmit: [{ hooks: [{ type: "command", command: foreignCommand, timeout: 5 }] }],
+        Stop: [{ hooks: [{ type: "command", command: foreignCommand, timeout: 5 }] }],
+      },
+    };
+    writeFileSync(join(ws, ".bob", "settings.json"), JSON.stringify(foreignSettings));
+    const internalEngine = makeInternalEngine(ws);
+    install(ws, internalEngine);
+    const handlers = ourHandlers(settings());
+    expect(handlers).toHaveLength(4);
+    for (const h of handlers) {
+      expect(h.command).toBe(`node "packages/engine/dist/hook-script.js"`);
+      expect(h.command).not.toContain("/Users/truongvinh");
+    }
+  });
 });
 
 describe("lazycop uninstall", () => {
@@ -80,6 +136,16 @@ describe("lazycop uninstall", () => {
     expect(existsSync(join(ws, ".bob/plugins/lazycop"))).toBe(false);
     expect(existsSync(join(ws, ".bob/commands/lazycop.md"))).toBe(false);
     expect(settings()).toEqual(own);
+  });
+
+  it("removes relative-form hooks installed when engine is inside workspace", () => {
+    const internalEngine = makeInternalEngine(ws);
+    install(ws, internalEngine);
+    uninstall(ws);
+    expect(existsSync(join(ws, ".bob/plugins/lazycop"))).toBe(false);
+    expect(existsSync(join(ws, ".bob/commands/lazycop.md"))).toBe(false);
+    // settings.json should no longer have any lazycop hooks
+    expect(ourHandlers(settings())).toHaveLength(0);
   });
 
   it("does nothing where LazyCop was never installed", () => {

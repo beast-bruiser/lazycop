@@ -30,6 +30,8 @@ export interface StoreState {
   lastIntent?: string;
   /** A card whose correction Bob has received; his next assumption card confirms it. */
   confirmFor?: string;
+  /** The pick the developer used when answering the confirmFor card (e.g. "spec"). */
+  confirmForPick?: string;
   /** The task's documents by workspace path, for the knowledge agent. */
   docs: Map<string, string>;
   /** What Bob's tool calls cost this session, for his mission report. */
@@ -37,6 +39,12 @@ export interface StoreState {
   /** Bob tried to end his turn without end_session and was told to call it; a second stop ends the task. */
   stopNudged: boolean;
   waiters: Set<() => void>;
+  /** Normalised spec-check quotes already shown this session, to suppress duplicates. */
+  shownQuotes: Set<string>;
+  /** Claims the developer already answered this session, so the final review does not re-ask them. */
+  answeredClaims: Set<string>;
+  /** The final review ran; a later end_session (after fixing objections) does not open a second one. */
+  finalReviewDone: boolean;
 }
 
 export function createStore(): StoreState {
@@ -52,6 +60,9 @@ export function createStore(): StoreState {
     usage: emptyUsage(),
     stopNudged: false,
     waiters: new Set(),
+    shownQuotes: new Set(),
+    answeredClaims: new Set(),
+    finalReviewDone: false,
   };
 }
 
@@ -71,9 +82,13 @@ export function clearSession(store: StoreState): void {
   store.lastMessageCard = undefined;
   store.lastReplyCard = undefined;
   store.confirmFor = undefined;
+  store.confirmForPick = undefined;
   store.docs.clear();
   store.usage = emptyUsage();
   store.stopNudged = false;
+  store.shownQuotes.clear();
+  store.answeredClaims.clear();
+  store.finalReviewDone = false;
   wake(store);
 }
 

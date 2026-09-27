@@ -4,10 +4,19 @@
 export interface CardWriter {
   /** Other plausible readings of what the developer meant, instead of Bob's assumption. */
   alternatives(input: { task: string; intent: string; assumption: string }): Promise<string[]>;
-  /** The behaviour an edit decides that the task never specified, if any. */
-  hiddenAssumption(input: { task: string; intent: string; patch: string }): Promise<string | null>;
+  /** The behaviour an edit decides that the task never specified, with the added line that decides it. */
+  hiddenAssumption(input: { task: string; intent: string; patch: string }): Promise<EditFinding | null>;
   /** A passage in the task's documents that contradicts or sharpens Bob's assumption, if any. */
   specCheck(input: { task: string; assumption: string; docs: { path: string; text: string }[] }): Promise<SpecFinding | null>;
+  /** A second opinion on a finding: false when the passage says nothing the assumption contradicts or leaves out. */
+  passageMatters?(input: { passage: string; assumption: string }): Promise<boolean>;
+}
+
+export interface EditFinding {
+  /** What the code now does, in a sentence. */
+  claim: string;
+  /** The added line that makes that decision; LazyCop verifies it before showing a card. */
+  line: string;
 }
 
 export interface SpecFinding {
@@ -28,26 +37,64 @@ const ALTERNATIVES_PROMPT =
 const HIDDEN_PROMPT =
   "You help a developer understand an AI coding agent's edit. Given the task, the agent's stated intent and a " +
   "unified diff, name the single most important behaviour the diff decides that the task did not specify: a " +
-  "default, an edge case, a missing value, a unit or a timezone. One statement of what the code does, under 20 " +
-  "words. If there is nothing notable, reply []. Reply with only a JSON array of at most 1 string.";
+  "default, an edge case, a missing value, a unit or a timezone. Read the added lines (starting with +) carefully: " +
+  "state exactly what they do, not what they might do. Reply with only a JSON object: {\"claim\": one statement of " +
+  "what the code does, under 20 words, \"line\": the one added line that makes this decision, copied exactly without " +
+  "the leading +}. If there is nothing notable, reply with only {}.";
 
 const SPEC_PROMPT =
-  "You check an AI coding agent's assumption against the project's documents. If a passage in the documents " +
-  "contradicts the assumption or makes it more precise, reply with only a JSON object: {\"path\": the document's path, " +
-  "\"quote\": one or two sentences copied exactly from that document, \"reading\": what the documents say should " +
-  "happen, under 20 words}. If the documents say nothing that bears on the assumption, reply with only {}.";
+  "You check an AI coding agent's assumption against the project's documents. Only report a passage that " +
+  "contradicts the assumption, or that adds a detail the assumption leaves out. If the assumption already says what " +
+  "the documents say, that is not a finding. Reply with only a JSON object: {\"relation\": \"contradicts\" or " +
+  "\"adds_detail\", \"path\": the document's path, \"quote\": one or two sentences copied exactly from that document, " +
+  "\"reading\": what the documents say should happen, under 20 words}. Otherwise, reply with only {}.";
 
-/** Pulls the first JSON object out of a model reply, if it has the fields of a finding. */
-export function parseFinding(reply: string): SpecFinding | null {
+const MATTERS_PROMPT = "Does the passage say something that the assumption contradicts or leaves out? Reply with only yes or no.";
+
+/** Pulls the first JSON object out of a model reply. */
+function parseObject(reply: string): Record<string, unknown> | null {
   const m = reply.match(/\{[\s\S]*\}/);
   if (!m) return null;
   try {
-    const o = JSON.parse(m[0]) as Record<string, unknown>;
-    const [path, quote, reading] = [o.path, o.quote, o.reading].map((v) => (typeof v === "string" ? v.trim() : ""));
-    return path && quote && reading ? { path, quote, reading } : null;
+    const o = JSON.parse(m[0]) as unknown;
+    return o && typeof o === "object" && !Array.isArray(o) ? (o as Record<string, unknown>) : null;
   } catch {
     return null;
   }
+}
+
+const str = (v: unknown) => (typeof v === "string" ? v.trim() : "");
+
+/**
+ * A spec finding, if the reply has one. A passage that only repeats the assumption is not a finding:
+ * relation must say it contradicts it or adds a detail.
+ */
+export function parseFinding(reply: string): SpecFinding | null {
+  const o = parseObject(reply);
+  if (!o || (o.relation !== undefined && o.relation !== "contradicts" && o.relation !== "adds_detail")) return null;
+  const [path, quote, reading] = [o.path, o.quote, o.reading].map(str);
+  return path && quote && reading ? { path, quote, reading } : null;
+}
+
+/** An edit finding, if the reply has a real statement and the line it rests on. */
+export function parseEditFinding(reply: string): EditFinding | null {
+  const o = parseObject(reply);
+  if (!o) return null;
+  const claim = str(o.claim);
+  const line = str(o.line).replace(/^\+\s?/, "");
+  return meaningful(claim) && line ? { claim, line } : null;
+}
+
+/**
+ * True when a model's line says something a developer can agree or disagree with. Small models
+ * sometimes answer "nothing notable" with filler instead of an empty list: "unit", "[No notable
+ * behavior specified]", "None".
+ */
+export function meaningful(text: string): boolean {
+  const t = text.trim();
+  if (t.length < 15 || t.split(/\s+/).length < 4) return false;
+  if (/^[\[(<{]/.test(t)) return false;
+  return !/^(none|n\/a|nothing)\b|\bno (notable|significant|new|specific|relevant) (behaviou?r|change|assumption|decision)s?\b/i.test(t);
 }
 
 /** Pulls the first JSON array of strings out of a model reply. */
@@ -106,9 +153,12 @@ function watsonx(apiKey: string, projectId: string, baseUrl: string, model: stri
 
   return {
     alternatives: async ({ task, intent, assumption }) =>
-      parseList(await ask(ALTERNATIVES_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nAgent's assumption: ${assumption}`)).slice(0, 2),
+      parseList(await ask(ALTERNATIVES_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nAgent's assumption: ${assumption}`)).filter(meaningful).slice(0, 2),
     hiddenAssumption: async ({ task, intent, patch }) =>
-      parseList(await ask(HIDDEN_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nDiff:\n${patch.slice(0, 6000)}`))[0] ?? null,
+      parseEditFinding(await ask(HIDDEN_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nDiff:\n${patch.slice(0, 6000)}`, 200)),
+    // Tested on Granite: a yes/no question is steadier than the open finding, and "no" only on clear agreement.
+    passageMatters: async ({ passage, assumption }) =>
+      !/^\s*no\b/i.test(await ask(MATTERS_PROMPT, `Passage: ${passage}\nAssumption: ${assumption}`, 3)),
     specCheck: async ({ task, assumption, docs }) => {
       if (docs.length === 0) return null;
       const corpus = docs.map((d) => `=== ${d.path} ===\n${d.text}`).join("\n\n");

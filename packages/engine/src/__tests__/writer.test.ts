@@ -13,7 +13,7 @@ import { loadEnvFile } from "../env.js";
 
 const fakeWriter = (over: Partial<CardWriter> = {}): CardWriter => ({
   alternatives: async () => ["expires at the end of the local day", "expires after a fixed number of days"],
-  hiddenAssumption: async () => "a coupon without expiresOn never expires",
+  hiddenAssumption: async () => ({ claim: "a coupon without expiresOn never expires", line: "if (coupon.expiresOn) {" }),
   specCheck: async () => null,
   ...over,
 });
@@ -66,8 +66,8 @@ describe("the card writer", () => {
       tool_response: "Edited file: coupon.js\n<patch>\n@@ -1,4 +1,6 @@\n+  if (coupon.expiresOn) {" } as HookPayload;
     await reviewEdit(store, edit, (e) => events.push(e));
     const card = cards(events)[0] as CardRecord;
-    expect(card).toMatchObject({ type: "hidden_assumption", source: "diff", claim: "a coupon without expiresOn never expires" });
-    expect(card.question).toBe("Bob's change decides: a coupon without expiresOn never expires. Is that what you want?");
+    expect(card).toMatchObject({ type: "hidden_assumption", source: "diff", claim: "a coupon without expiresOn never expires", quote: { path: "coupon.js", text: "if (coupon.expiresOn) {" } });
+    expect(card.question).toBe('Bob\'s change adds: "if (coupon.expiresOn) {" This decides: a coupon without expiresOn never expires. Is that what you want?');
   });
 
   it("parses a model's list reply, tolerating prose around it", () => {
@@ -149,5 +149,41 @@ describe("end_session never drops an answer still on its way to Bob", () => {
     expect(store.session).not.toBeNull();
     expect(store.pending).toHaveLength(0);
     expect(store.confirmFor).toBe(card.id);
+  });
+});
+
+describe("after-an-edit cards rest on a line that was really added", () => {
+  const edit = (response: string) => ({ hook_event_name: "PostToolUse", session_id: "s-1", cwd: ".", tool_name: "apply_diff", tool_input: { path: "coupon.js" }, tool_use_id: "t", tool_response: response }) as HookPayload;
+  const PATCH = "Edited file: coupon.js\n<patch>\n@@ -1,3 +1,4 @@\n export function applyCoupon(cart, coupon) {\n   if (!coupon) return cart.total;\n+  if (!coupon.expiresOn) return cart.total;\n   return Math.max(0, cart.total - coupon.amount);";
+
+  it("drops a finding whose line is not among the added lines (the live run's false card)", async () => {
+    setCardWriter(fakeWriter({ hiddenAssumption: async () => ({ claim: "Coupons without an expiry date always apply their discount", line: "return Math.max(0, cart.total - coupon.amount);" }) }));
+    const events: SseEventInput[] = [];
+    await reviewEdit(watchedStore(), edit(PATCH), (e) => events.push(e));
+    expect(cards(events)).toHaveLength(0); // that line is unchanged context, not something Bob added
+  });
+
+  it("drops a finding whose line is made up", async () => {
+    setCardWriter(fakeWriter({ hiddenAssumption: async () => ({ claim: "coupons without expiry always apply", line: "if (coupon.expiresOn === undefined) applyAnyway();" }) }));
+    const events: SseEventInput[] = [];
+    await reviewEdit(watchedStore(), edit(PATCH), (e) => events.push(e));
+    expect(cards(events)).toHaveLength(0);
+  });
+
+  it("shows the added line it rests on", async () => {
+    setCardWriter(fakeWriter({ hiddenAssumption: async () => ({ claim: "a coupon without expiresOn gives no discount", line: "+  if (!coupon.expiresOn) return cart.total;" }) }));
+    const events: SseEventInput[] = [];
+    await reviewEdit(watchedStore(), edit(PATCH), (e) => events.push(e));
+    expect(cards(events)[0]!.quote).toEqual({ path: "coupon.js", text: "if (!coupon.expiresOn) return cart.total;" });
+  });
+});
+
+describe("spec findings", () => {
+  it("a passage that only repeats Bob's assumption is not a finding", async () => {
+    const { parseFinding } = await import("../writer.js");
+    const base = { path: "SPEC.md", quote: "A coupon without an expiry date is rejected", reading: "rejected" };
+    expect(parseFinding(JSON.stringify({ relation: "same", ...base }))).toBeNull();
+    expect(parseFinding(JSON.stringify({ relation: "contradicts", ...base }))).toMatchObject(base);
+    expect(parseFinding(JSON.stringify({ relation: "adds_detail", ...base }))).toMatchObject(base);
   });
 });

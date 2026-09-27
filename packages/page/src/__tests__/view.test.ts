@@ -161,3 +161,21 @@ describe("knowledge agent on the page", () => {
     expect(view.feed.at(-1)).toMatchObject({ kind: "doc", text: "LazyCop knows SPEC.md (you named it)" });
   });
 });
+
+describe("stale cards on the page", () => {
+  it("removes stale cards from the view when a stale event arrives", () => {
+    const second = { ...card, id: "k-2" };
+    let view = run(started, { type: "card", at, card }, { type: "card", at, card: second });
+    expect(view.cards).toHaveLength(2);
+    view = reduce(view, { type: "stale", at, ids: ["k-1"] });
+    expect(view.cards).toHaveLength(1);
+    expect(view.cards[0]!.card.id).toBe("k-2");
+  });
+
+  it("ignores a stale event for ids not in the current card list", () => {
+    let view = run(started, { type: "card", at, card });
+    expect(view.cards).toHaveLength(1);
+    view = reduce(view, { type: "stale", at, ids: ["k-99"] });
+    expect(view.cards).toHaveLength(1);
+  });
+});
