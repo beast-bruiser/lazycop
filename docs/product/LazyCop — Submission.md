@@ -17,7 +17,7 @@ LazyCop: Steer IBM Bob While It Works
 *(max 255 characters)*
 
 ```
-Stop waiting on your AI agent. LazyCop turns Bob's run into a quick two-way quiz: Bob says what it assumes, you agree or fix it in one tap, and Bob changes course mid-task, before a wrong guess eats your Bobcoins.
+Stop waiting on your AI agent long running plan. LazyCop turns Bob's run into a quick and interactive two-way game: Bob says what it assumes, you agree or fix it in one tap, and Bob changes course mid-task, before a wrong guess eats your Bobcoins.
 ```
 
 ## Long Description
@@ -26,11 +26,11 @@ Stop waiting on your AI agent. LazyCop turns Bob's run into a quick two-way quiz
 
 ```
 THE PROBLEM: YOU FIND THE MISTAKE TOO LATE
-You give an AI agent a task and wait. Early on it guesses wrong, and every step after builds on that bad guess. You only see it when you read hundreds of finished lines.
+You give an AI agent a task and wait. Early on it guesses wrong, and every step after builds on that bad guess. You only see it when you read hundreds of finished lines. And honestly, we're not great at spotting it: in METR's 2025 study, experienced developers using AI were actually 19% slower, while feeling 20% faster.
 
-That waiting is expensive. One IBM Bob user watched a simple formatting fix burn 150 Bobcoins (about $75), 542 searches and 61 minutes before stopping it by hand (ibm-bob issue #3683).
+That waiting adds up fast. One IBM Bob user watched a simple formatting fix eat 150 Bobcoins (about $75), 542 searches and 61 minutes before they stopped it by hand (https://github.com/IBM/ibm-bob/issues/3683).
 
-The real problem isn't that agents make mistakes. It's that we catch them after they're paid for.
+The real problem isn't that agents make mistakes. It is that we catch them after they're paid for.
 
 THE IDEA: REVIEW WHILE BOB WORKS, NOT AFTER
 LazyCop is the cop on duty while you wait. It turns dead time into a short, two-way quiz.
