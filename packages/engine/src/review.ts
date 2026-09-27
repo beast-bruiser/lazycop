@@ -1,5 +1,5 @@
-// Cards: how they are made, answered, and enriched by the card writer while Bob works.
-import type { AnswerRecord, CardRecord, CardType, HookPayload } from "@lazycops/contracts";
+// Cards: how they are made and answered, and the knowledge agent's check of them against the task's documents.
+import type { AnswerRecord, CardRecord, CardType } from "@lazycops/contracts";
 import type { StoreState } from "./store.js";
 import type { Push } from "./mcp.js";
 import { appendRecord } from "./logger.js";
@@ -13,7 +13,6 @@ let cardSeq = 0;
 
 const QUESTIONS: Record<string, (claim: string) => string> = {
   declare_step: (c) => `Bob assumes: ${c}. Is that right?`,
-  diff: (c) => `Bob's change decides: ${c}. Is that what you want?`,
   end_session: (c) => `Bob relied on this without asking you: ${c}. Is that right?`,
   confirm: (c) => `Bob now reads your correction as: ${c}. Is that what you meant?`,
 };
@@ -80,30 +79,6 @@ export function recordAnswer(store: StoreState, card: CardRecord, answer: Answer
 export function noteDelivered(store: StoreState, message: { card?: string; correction?: boolean }): void {
   if (message.card) store.lastMessageCard = message.card;
   if (message.card && message.correction) store.confirmFor = message.card;
-}
-
-/** Shows a card now, then adds the writer's alternative readings if they arrive while it is still open. */
-export async function addAlternatives(store: StoreState, card: CardRecord, intent: string, push: Push): Promise<void> {
-  const alternatives = await cardWriter().alternatives({ task: store.session?.task ?? "", intent, assumption: card.claim });
-  if (alternatives.length === 0 || store.cards.get(card.id) !== card) return; // answered, or the session moved on
-  const [bob, ...rest] = card.options;
-  const updated: CardRecord = { ...card, options: [bob!, ...alternatives.map((text, i) => ({ id: `alt-${i + 1}`, text })), ...rest] };
-  store.cards.set(card.id, updated);
-  appendRecord(updated);
-  push({ type: "card", card: updated });
-}
-
-/** After an edit lands, asks the writer what the diff decided that nobody asked about. Never delays Bob. */
-export async function reviewEdit(store: StoreState, payload: HookPayload, push: Push): Promise<void> {
-  if (payload.hook_event_name !== "PostToolUse" || !EDIT_TOOLS.includes(payload.tool_name)) return;
-  if (!payload.tool_response.includes("@@")) return;
-  const session = store.session;
-  const claim = await cardWriter().hiddenAssumption({ task: session?.task ?? "", intent: store.lastIntent ?? "", patch: payload.tool_response });
-  if (!claim || store.session !== session) return;
-  const card = makeCard(claim, "hidden_assumption", "diff");
-  store.cards.set(card.id, card);
-  appendRecord(card);
-  push({ type: "card", card });
 }
 
 /**

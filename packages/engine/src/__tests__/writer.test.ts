@@ -2,80 +2,18 @@ import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 import { mkdtempSync, writeFileSync } from "node:fs";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import type { CardRecord, HookPayload, SseEventInput } from "@lazycops/contracts";
+import type { SseEventInput } from "@lazycops/contracts";
 import { watchedStore } from "./helpers.js";
 import { onMcp, HOLD_WAIT_MS } from "../mcp.js";
 import { resolveCard } from "../cards.js";
-import { recordAnswer, reviewEdit } from "../review.js";
-import { parseList, setCardWriter } from "../writer.js";
-import type { CardWriter } from "../writer.js";
+import { recordAnswer } from "../review.js";
+import { setCardWriter } from "../writer.js";
 import { loadEnvFile } from "../env.js";
 
-const fakeWriter = (over: Partial<CardWriter> = {}): CardWriter => ({
-  alternatives: async () => ["expires at the end of the local day", "expires after a fixed number of days"],
-  hiddenAssumption: async () => "a coupon without expiresOn never expires",
-  specCheck: async () => null,
-  ...over,
-});
 const cards = (events: SseEventInput[]) => events.filter((e): e is Extract<SseEventInput, { type: "card" }> => e.type === "card").map((e) => e.card);
 const flush = () => new Promise((r) => setImmediate(r));
 
 afterEach(() => setCardWriter(null));
-
-describe("the card writer", () => {
-  it("adds its readings to an open card, between Bob's option and Something else", async () => {
-    setCardWriter(fakeWriter());
-    const events: SseEventInput[] = [];
-    const store = watchedStore();
-    store.pending.push({ id: "m", text: "skip the pause", channel: "context" });
-    await onMcp(store, "declare_step", { intent: "add expiry", files: ["coupon.js"], assumption: "expiresAt is a Date" }, (e) => events.push(e));
-    await flush();
-    const updated = cards(events).at(-1)!;
-    expect(updated.options.map((o) => o.id)).toEqual(["bob", "alt-1", "alt-2", "other", "ask_why"]);
-    expect(updated.options[1]!.text).toBe("expires at the end of the local day");
-  });
-
-  it("leaves a card alone once it has been answered", async () => {
-    let release!: (v: string[]) => void;
-    setCardWriter(fakeWriter({ alternatives: () => new Promise((r) => (release = r)) }));
-    const events: SseEventInput[] = [];
-    const store = watchedStore();
-    await onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
-    const first = cards(events)[0]!;
-    recordAnswer(store, first, { kind: "answer", card: first.id, pick: "bob" }, "block");
-    release(["too late"]);
-    await flush();
-    expect(cards(events)).toHaveLength(1);
-  });
-
-  it("works without an LLM: cards keep Bob's option only", async () => {
-    setCardWriter(fakeWriter({ alternatives: async () => [] }));
-    const events: SseEventInput[] = [];
-    const store = watchedStore();
-    store.pending.push({ id: "m", text: "skip", channel: "context" });
-    await onMcp(store, "declare_step", { intent: "x", files: ["a"], assumption: "A1" }, (e) => events.push(e));
-    await flush();
-    expect(cards(events)).toHaveLength(1);
-  });
-
-  it("turns what an edit decided into a card, without delaying Bob", async () => {
-    setCardWriter(fakeWriter());
-    const events: SseEventInput[] = [];
-    const store = watchedStore();
-    const edit = { hook_event_name: "PostToolUse", session_id: "s-1", cwd: ".", tool_name: "apply_diff", tool_input: { path: "coupon.js" }, tool_use_id: "t",
-      tool_response: "Edited file: coupon.js\n<patch>\n@@ -1,4 +1,6 @@\n+  if (coupon.expiresOn) {" } as HookPayload;
-    await reviewEdit(store, edit, (e) => events.push(e));
-    const card = cards(events)[0] as CardRecord;
-    expect(card).toMatchObject({ type: "hidden_assumption", source: "diff", claim: "a coupon without expiresOn never expires" });
-    expect(card.question).toBe("Bob's change decides: a coupon without expiresOn never expires. Is that what you want?");
-  });
-
-  it("parses a model's list reply, tolerating prose around it", () => {
-    expect(parseList('Sure! ["a", "b"] hope that helps')).toEqual(["a", "b"]);
-    expect(parseList("[]")).toEqual([]);
-    expect(parseList("no list here")).toEqual([]);
-  });
-});
 
 describe("the final review in end_session", () => {
   beforeEach(() => vi.useFakeTimers());
@@ -116,9 +54,7 @@ describe(".env loading", () => {
 });
 
 describe("Bob's own alternatives (option A)", () => {
-  it("become one-click options right away, and the card writer is not asked", async () => {
-    let asked = false;
-    setCardWriter(fakeWriter({ alternatives: async () => ((asked = true), ["from granite"]) }));
+  it("become one-click options right away", async () => {
     const events: SseEventInput[] = [];
     const store = watchedStore();
     store.pending.push({ id: "m", text: "skip the pause", channel: "context" });
@@ -132,7 +68,6 @@ describe("Bob's own alternatives (option A)", () => {
       "expiresAt is a timestamp", "expires at the end of the local day", "expires 30 days after issue", "a", "Something else…", "Ask Bob why",
     ]);
     expect(updates).toHaveLength(0);
-    expect(asked).toBe(false);
   });
 });
 

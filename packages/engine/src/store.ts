@@ -26,8 +26,6 @@ export interface StoreState {
   lastMessageCard?: string;
   /** The card of Bob's last reply: what he is waiting on when he calls check_in. */
   lastReplyCard?: string;
-  /** Bob's last declared intent, the context for reviewing his next edit. */
-  lastIntent?: string;
   /** A card whose correction Bob has received; his next assumption card confirms it. */
   confirmFor?: string;
   /** The task's documents by workspace path, for the knowledge agent. */

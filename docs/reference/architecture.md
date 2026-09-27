@@ -59,5 +59,7 @@ work took a lot of effort. A file the PostToolUse hooks saw him edit but the rep
 leaves out sends the report back, and the session stays open. Tool calls, files read,
 files edited and approximate tokens (tool input and output characters ÷ 4) are
 counted by LazyCop from its own hook events, never taken from Bob, and are shown for
-information only: there is no budget and no pass/fail. The accepted report is
-appended as a `report` record and pushed to the page before the session ends.
+information only: there is no budget and no pass/fail. When watsonx credentials are set,
+Granite reviews the session's diffs once, during the final review's wait, and the report
+carries at most 3 `risks`, each in a file the hooks saw Bob edit; any other is dropped.
+The accepted report is appended as a `report` record and pushed to the page before the session ends.

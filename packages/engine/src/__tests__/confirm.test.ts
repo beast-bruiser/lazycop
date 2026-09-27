@@ -5,7 +5,7 @@ import { onMcp } from "../mcp.js";
 import { recordAnswer } from "../review.js";
 import { setCardWriter } from "../writer.js";
 
-const silent = { alternatives: async () => [], hiddenAssumption: async () => null, specCheck: async () => null };
+const silent = { specCheck: async () => null, reviewRisks: async () => [] };
 afterEach(() => setCardWriter(null));
 
 const cardsOf = (events: SseEventInput[]) => events.flatMap((e) => (e.type === "card" ? [e.card] : []));

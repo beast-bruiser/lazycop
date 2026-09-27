@@ -20,6 +20,7 @@ function renderUnitProfile(): string {
   const squad = ui.squad.agents.length;
 
   return `<div id="unit-profile">
+    <div class="game-logo"><img src="/img/logo.png" alt="LazyCop"></div>
     ${renderSquadBar("squad-bar unit-tabs")}
     <div class="panel-header">UNIT PROFILE</div>
     <div class="unit-portrait-row">
@@ -46,7 +47,6 @@ export function renderBriefingScreen(): string {
 
   return `<div id="screen-briefing" class="screen active">
     <div id="briefing-title">
-      <div class="game-logo">⚔ LAZYCOP</div>
       <div class="mission-label">▶ MISSION BRIEFING</div>
       <div class="briefing-task">${esc(v.task ?? "No active mission")}</div>
       <div class="briefing-controls">

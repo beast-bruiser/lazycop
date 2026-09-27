@@ -24,6 +24,7 @@ export type {
   ReplyRecord,
   ReportRecord,
   MissionStats,
+  RiskArea,
 } from "./records.js";
 export type {
   SseEvent,

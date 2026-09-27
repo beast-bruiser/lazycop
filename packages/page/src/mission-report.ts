@@ -20,11 +20,15 @@ export function renderMissionReport(view: ViewState): string {
   const changes = r.changes.map((c) =>
     `<li><span class="rep-file">${esc(c.file)}</span>${c.what ? ` — ${esc(c.what)}` : ""}</li>`
   ).join("");
+  const risks = (r.risks ?? []).map((k) =>
+    `<li><span class="rep-file">${esc(k.file)}${k.line ? `:${k.line}` : ""}</span> — ${esc(k.risk)}</li>`
+  ).join("");
   const s = r.stats;
   return `<div class="report-box">
     ${r.summary ? `<p class="rep-summary">${esc(r.summary)}</p>` : ""}
     <div class="rep-h">CHANGES (${r.changes.length})</div>
     ${changes ? `<ul class="rep-changes">${changes}</ul>` : `<p class="rep-none">No files changed.</p>`}
+    ${risks ? `<div class="rep-risks"><div class="rep-h risk">RISK AREAS · GRANITE REVIEW</div><ul class="rep-changes">${risks}</ul></div>` : ""}
     <div class="rep-stats">
       ${stat("⚙", "TOOL CALLS", String(s.toolCalls))}
       ${stat("📖", "FILES READ", String(s.filesRead))}

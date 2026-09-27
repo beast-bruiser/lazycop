@@ -14,7 +14,7 @@ const assumptionCard: CardRecord = {
   kind: "card", id: "k-1", type: "assumption", question: "q", claim: "an expired coupon is one with expiresAt < now", source: "declare_step",
   options: [{ id: "bob", text: "an expired coupon is one with expiresAt < now" }],
 };
-const writerFinding = (finding: SpecFinding | null): CardWriter => ({ alternatives: async () => [], hiddenAssumption: async () => null, specCheck: async () => finding });
+const writerFinding = (finding: SpecFinding | null): CardWriter => ({ specCheck: async () => finding, reviewRisks: async () => [] });
 const cardsOf = (events: SseEventInput[]) => events.flatMap((e) => (e.type === "card" ? [e.card] : []));
 
 afterEach(() => setCardWriter(null));

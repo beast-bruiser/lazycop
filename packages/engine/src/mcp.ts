@@ -3,10 +3,10 @@ import type { StoreState } from "./store.js";
 import { setHold, waitForDeveloper } from "./store.js";
 import { appendRecord } from "./logger.js";
 import { startSession, endSession } from "./session.js";
-import { addAlternatives, makeCard, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
+import { makeCard, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
 import { loadNamedDocs } from "./docs.js";
 import { definedSkills } from "./skills.js";
-import { buildReport, parseChanges, sendBack, unreportedFiles } from "./report.js";
+import { buildReport, parseChanges, reviewRisks, sendBack, unreportedFiles } from "./report.js";
 
 export const HOLD_WAIT_MS = 45_000;
 export const MAX_HOLD_POLLS = 3;
@@ -45,6 +45,8 @@ export async function onMcp(
     const changes = parseChanges((args as { changes?: unknown }).changes);
     const missing = unreportedFiles(store.usage, changes, store.session.cwd);
     if (missing.length) return sendBack(missing);
+    // The risk review runs during the final review's wait, so end_session stays inside Bob's MCP timeout.
+    const risks = reviewRisks(store.usage, store.session.task, summary, store.session.cwd);
     const list = (Array.isArray(assumptions) ? assumptions : []).filter((a): a is string => typeof a === "string" && a.trim() !== "").slice(0, 5);
     const objections = await reviewBeforeEnd(store, list, HOLD_WAIT_MS, push);
     // Answers still waiting for Bob's next step would be lost if the task closed now: that step is this one.
@@ -59,7 +61,7 @@ export async function onMcp(
     if (toFix.length) {
       return `Before you finish, the developer disagrees:\n- ${toFix.join("\n- ")}\nFix these, answer with reply_to_developer, then call end_session again.`;
     }
-    const report = buildReport(store.usage, { summary, effort_note }, changes);
+    const report = buildReport(store.usage, { summary, effort_note }, changes, await risks);
     appendRecord({ kind: "report", ts: new Date().toISOString(), ...report });
     push({ type: "report", report });
     endSession(store);
@@ -85,8 +87,6 @@ export async function onMcp(
   const declareArgs = args as unknown as DeclareStepInput;
   let createdCard: string | undefined;
 
-  if (tool === "declare_step") store.lastIntent = declareArgs.intent;
-
   if (tool === "declare_step" && declareArgs.assumption) {
     // The first assumption after Bob received a correction restates it: ask whether he got it right.
     const confirms = store.confirmFor;
@@ -99,8 +99,6 @@ export async function onMcp(
     appendRecord(card);
     // Cards run alongside Bob's work: he never waits for one. An answer reaches him at his next step.
     push({ type: "card", card });
-    // Bob's own alternatives come first; the card writer, if configured, fills in only when he gave none.
-    if (!card.options.some((o) => o.id.startsWith("alt-"))) void addAlternatives(store, card, declareArgs.intent, push);
     void specCheck(store, card, push);
   }
 

@@ -1,7 +1,8 @@
-// Bob's mission report: what LazyCop measures itself during a session, and the check that his
-// report at end_session names every file the hooks saw him edit.
-import type { HookPayload, MissionStats, ReportedChange, ReportRecord } from "@lazycops/contracts";
+// Bob's mission report: what LazyCop measures itself during a session, the check that his
+// report at end_session names every file the hooks saw him edit, and the reviewer's risk areas.
+import type { HookPayload, MissionStats, ReportedChange, ReportRecord, RiskArea } from "@lazycops/contracts";
 import { EDIT_TOOLS } from "./review.js";
+import { cardWriter } from "./writer.js";
 
 const READ_TOOLS = ["read_file", "list_code_definition_names"];
 
@@ -11,9 +12,11 @@ export interface Usage {
   chars: number;
   read: Set<string>;
   edited: Set<string>;
+  /** Every patch an edit produced, in order, for the risk review. */
+  diffs: { file: string; patch: string }[];
 }
 
-export const emptyUsage = (): Usage => ({ toolCalls: 0, chars: 0, read: new Set(), edited: new Set() });
+export const emptyUsage = (): Usage => ({ toolCalls: 0, chars: 0, read: new Set(), edited: new Set(), diffs: [] });
 
 /** One way to write a path, so "./a.ts", "/repo/a.ts" and "a.ts" match. */
 export function normalizePath(path: string, cwd?: string): string {
@@ -39,8 +42,10 @@ export function countToolCall(usage: Usage, payload: HookPayload): void {
   const p = payload.tool_input && typeof payload.tool_input === "object" ? (payload.tool_input as Record<string, unknown>)["path"] : undefined;
   if (typeof p !== "string") return;
   const path = normalizePath(p, payload.cwd);
-  if (EDIT_TOOLS.includes(payload.tool_name)) usage.edited.add(path);
-  else if (READ_TOOLS.includes(payload.tool_name)) usage.read.add(path);
+  if (EDIT_TOOLS.includes(payload.tool_name)) {
+    usage.edited.add(path);
+    if (typeof payload.tool_response === "string" && payload.tool_response.includes("@@")) usage.diffs.push({ file: path, patch: payload.tool_response });
+  } else if (READ_TOOLS.includes(payload.tool_name)) usage.read.add(path);
 }
 
 export function statsOf(usage: Usage): MissionStats {
@@ -72,8 +77,20 @@ export function sendBack(missing: string[]): string {
   return `Your mission report leaves out files you changed:\n- ${missing.join("\n- ")}\nAdd each one to changes (file, and what changed and why), then call end_session again.`;
 }
 
-export function buildReport(usage: Usage, args: { summary?: unknown; effort_note?: unknown }, changes: ReportedChange[]): Omit<ReportRecord, "kind" | "ts"> {
+/**
+ * Asks the reviewer where the session's change could break or surprise. A risk in a file the hooks
+ * did not see Bob edit is dropped, so the report never points somewhere the change did not touch.
+ */
+export async function reviewRisks(usage: Usage, task: string, summary: unknown, cwd?: string): Promise<RiskArea[]> {
+  if (usage.diffs.length === 0) return [];
+  const risks = await cardWriter()
+    .reviewRisks({ task, summary: typeof summary === "string" ? summary : "", diffs: usage.diffs })
+    .catch(() => []); // the report simply goes without a review
+  return risks.map((r) => ({ ...r, file: normalizePath(r.file, cwd) })).filter((r) => usage.edited.has(r.file)).slice(0, 3);
+}
+
+export function buildReport(usage: Usage, args: { summary?: unknown; effort_note?: unknown }, changes: ReportedChange[], risks: RiskArea[] = []): Omit<ReportRecord, "kind" | "ts"> {
   const text = (v: unknown) => (typeof v === "string" ? v.trim() : "");
   const effort = text(args.effort_note);
-  return { summary: text(args.summary), changes, ...(effort ? { effort_note: effort } : {}), stats: statsOf(usage) };
+  return { summary: text(args.summary), changes, ...(effort ? { effort_note: effort } : {}), stats: statsOf(usage), ...(risks.length ? { risks } : {}) };
 }

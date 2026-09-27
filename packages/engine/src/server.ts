@@ -6,8 +6,7 @@ import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { HookPayload, SseEvent, SseEventInput, SseStateEvent } from "@lazycops/contracts";
 import { pageUrl } from "./mcp.js";
-import { afterStop, agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, shownOnPage, tagged, watching, withRecords } from "./squad.js";
-import { reviewEdit } from "./review.js";
+import { afterStop, agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, shownOnPage, tagged, watching } from "./squad.js";
 import { loadEnvFile } from "./env.js";
 import { onDeveloper } from "./developer.js";
 import { addDoc, fileText, isDocPath } from "./docs.js";
@@ -19,6 +18,8 @@ loadEnvFile(process.env.LAZYCOP_ENV_FILE ?? join(dirname(fileURLToPath(import.me
 
 // The page lives in @lazycops/page: index.html plus its compiled modules in dist/.
 const pageDir = dirname(createRequire(import.meta.url).resolve("@lazycops/page/package.json"));
+// public/ lives at the workspace root, three levels above packages/engine/src/.
+const publicDir = join(dirname(fileURLToPath(import.meta.url)), "../../../public");
 
 function servePage(res: http.ServerResponse, path: string): void {
   const file = path === "/" ? join(pageDir, "index.html") : join(pageDir, "dist", path.slice(1));
@@ -105,6 +106,18 @@ export function createServer(): http.Server {
     if (req.method === "GET" && /^\/assets\/([a-z-]+\.png|audio\/[a-z-]+\.mp3)$/.test(url.pathname)) {
       return serveAsset(res, url.pathname);
     }
+    // Static images from public/img/
+    if (req.method === "GET" && /^\/img\/[a-z0-9-]+\.png$/.test(url.pathname)) {
+      try {
+        const body = readFileSync(join(publicDir, url.pathname.slice(1)));
+        res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" });
+        res.end(body);
+      } catch {
+        res.writeHead(404, { "content-type": "text/plain" });
+        res.end("not found");
+      }
+      return;
+    }
 
     if (req.method === "GET" && url.pathname === "/stream") {
       res.writeHead(200, {
@@ -141,7 +154,6 @@ export function createServer(): http.Server {
         if (agent && isWatching(agent) && shownOnPage(payload)) {
           const send = tagged(push, agent);
           send({ type: "hook", seq: ++squad.seq, payload });
-          void withRecords(agent, () => reviewEdit(agent.store, payload, send));
           keepDocBobRead(agent, payload, send);
         }
         if (agent && payload.hook_event_name === "Stop") afterStop(agent, end === true, push);

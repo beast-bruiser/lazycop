@@ -5,7 +5,7 @@ import { cardWriter, setCardWriter } from "../writer.js";
 
 const seen: { path: string; body: string; auth?: string }[] = [];
 let mock: http.Server;
-let reply = '["expires at the end of the local day", "expires 30 days after issue", "extra"]';
+let reply = 'Here: [{"file": "coupon.js", "line": 12, "risk": "a coupon without expiresOn never expires"}, {"file": "", "risk": "x"}, {"file": "cart.js", "line": "7", "risk": "total can go negative"}]';
 
 beforeAll(async () => {
   mock = http.createServer((req, res) => {
@@ -33,8 +33,12 @@ afterAll(() => {
 describe("watsonx.ai card writer", () => {
   it("gets an IAM token once, then calls the chat API with the model and project", async () => {
     const writer = cardWriter();
-    expect(await writer.alternatives({ task: "t", intent: "i", assumption: "a" })).toEqual(["expires at the end of the local day", "expires 30 days after issue"]);
-    await writer.alternatives({ task: "t", intent: "i", assumption: "b" });
+    const diffs = [{ file: "coupon.js", patch: "@@ -1 +1 @@" }];
+    expect(await writer.reviewRisks({ task: "t", summary: "s", diffs })).toEqual([
+      { file: "coupon.js", line: 12, risk: "a coupon without expiresOn never expires" },
+      { file: "cart.js", risk: "total can go negative" },
+    ]);
+    await writer.reviewRisks({ task: "t", summary: "s", diffs });
 
     expect(seen.filter((r) => r.path === "/identity/token")).toHaveLength(1);
     expect(new URLSearchParams(seen[0]!.body).get("apikey")).toBe("key-1");
@@ -44,8 +48,8 @@ describe("watsonx.ai card writer", () => {
     expect(JSON.parse(chat.body)).toMatchObject({ model_id: "ibm/granite-4-h-small", project_id: "proj-1" });
   });
 
-  it("treats an empty list as nothing notable in a diff", async () => {
+  it("treats an empty list as nothing risky in the change", async () => {
     reply = "[]";
-    expect(await cardWriter().hiddenAssumption({ task: "t", intent: "i", patch: "@@" })).toBeNull();
+    expect(await cardWriter().reviewRisks({ task: "t", summary: "s", diffs: [{ file: "a.js", patch: "@@" }] })).toEqual([]);
   });
 });

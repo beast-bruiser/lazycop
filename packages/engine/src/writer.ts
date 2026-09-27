@@ -1,13 +1,13 @@
-// Writes card text with an LLM (Granite on watsonx.ai). Without credentials every method returns
-// nothing and LazyCop keeps working with Bob's own words only.
+// Writes text with an LLM (Granite on watsonx.ai): the knowledge agent's spec check and the risk review
+// of a finished change. Without credentials every method returns nothing and LazyCop keeps working
+// with Bob's own words only.
+import type { RiskArea } from "@lazycops/contracts";
 
 export interface CardWriter {
-  /** Other plausible readings of what the developer meant, instead of Bob's assumption. */
-  alternatives(input: { task: string; intent: string; assumption: string }): Promise<string[]>;
-  /** The behaviour an edit decides that the task never specified, if any. */
-  hiddenAssumption(input: { task: string; intent: string; patch: string }): Promise<string | null>;
   /** A passage in the task's documents that contradicts or sharpens Bob's assumption, if any. */
   specCheck(input: { task: string; assumption: string; docs: { path: string; text: string }[] }): Promise<SpecFinding | null>;
+  /** The riskiest places in the session's diffs, most risky first. */
+  reviewRisks(input: { task: string; summary: string; diffs: { file: string; patch: string }[] }): Promise<RiskArea[]>;
 }
 
 export interface SpecFinding {
@@ -18,24 +18,20 @@ export interface SpecFinding {
   reading: string;
 }
 
-const silent: CardWriter = { alternatives: async () => [], hiddenAssumption: async () => null, specCheck: async () => null };
-
-const ALTERNATIVES_PROMPT =
-  "You help a developer check an AI coding agent's assumption before it writes code. Given the task and the agent's " +
-  "assumption, give 2 different concrete readings the developer may have meant instead. Each under 15 words, " +
-  "stated positively (not 'not X'). Reply with only a JSON array of strings.";
-
-const HIDDEN_PROMPT =
-  "You help a developer understand an AI coding agent's edit. Given the task, the agent's stated intent and a " +
-  "unified diff, name the single most important behaviour the diff decides that the task did not specify: a " +
-  "default, an edge case, a missing value, a unit or a timezone. One statement of what the code does, under 20 " +
-  "words. If there is nothing notable, reply []. Reply with only a JSON array of at most 1 string.";
+const silent: CardWriter = { specCheck: async () => null, reviewRisks: async () => [] };
 
 const SPEC_PROMPT =
   "You check an AI coding agent's assumption against the project's documents. If a passage in the documents " +
   "contradicts the assumption or makes it more precise, reply with only a JSON object: {\"path\": the document's path, " +
   "\"quote\": one or two sentences copied exactly from that document, \"reading\": what the documents say should " +
   "happen, under 20 words}. If the documents say nothing that bears on the assumption, reply with only {}.";
+
+const RISK_PROMPT =
+  "You review an AI coding agent's finished change for a developer. Given the task, the agent's summary and the " +
+  "diffs, name at most 3 places most likely to break something or surprise the developer: an unhandled case, a " +
+  "changed default, a missing check, a behaviour the task did not ask for. Be concrete; skip style and generic " +
+  "advice. Reply with only a JSON array of {\"file\": a file from the diffs, \"line\": the new line number, " +
+  "\"risk\": what could go wrong, under 25 words}. If nothing is notably risky, reply [].";
 
 /** Pulls the first JSON object out of a model reply, if it has the fields of a finding. */
 export function parseFinding(reply: string): SpecFinding | null {
@@ -50,13 +46,20 @@ export function parseFinding(reply: string): SpecFinding | null {
   }
 }
 
-/** Pulls the first JSON array of strings out of a model reply. */
-export function parseList(reply: string): string[] {
+/** Pulls the risk areas out of a model reply, keeping only well-formed ones. */
+export function parseRisks(reply: string): RiskArea[] {
   const m = reply.match(/\[[\s\S]*\]/);
   if (!m) return [];
   try {
     const list = JSON.parse(m[0]) as unknown;
-    return Array.isArray(list) ? list.filter((x): x is string => typeof x === "string" && x.trim() !== "").map((x) => x.trim()) : [];
+    if (!Array.isArray(list)) return [];
+    return list.flatMap((o) => {
+      if (!o || typeof o !== "object") return [];
+      const { file, line, risk } = o as Record<string, unknown>;
+      if (typeof file !== "string" || !file.trim() || typeof risk !== "string" || !risk.trim()) return [];
+      const at = typeof line === "number" && Number.isInteger(line) && line > 0 ? { line } : {};
+      return [{ file: file.trim(), ...at, risk: risk.trim() }];
+    });
   } catch {
     return [];
   }
@@ -105,14 +108,15 @@ function watsonx(apiKey: string, projectId: string, baseUrl: string, model: stri
   }
 
   return {
-    alternatives: async ({ task, intent, assumption }) =>
-      parseList(await ask(ALTERNATIVES_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nAgent's assumption: ${assumption}`)).slice(0, 2),
-    hiddenAssumption: async ({ task, intent, patch }) =>
-      parseList(await ask(HIDDEN_PROMPT, `Task: ${task}\nAgent's intent: ${intent}\nDiff:\n${patch.slice(0, 6000)}`))[0] ?? null,
     specCheck: async ({ task, assumption, docs }) => {
       if (docs.length === 0) return null;
       const corpus = docs.map((d) => `=== ${d.path} ===\n${d.text}`).join("\n\n");
       return parseFinding(await ask(SPEC_PROMPT, `Task: ${task}\nAgent's assumption: ${assumption}\n\nDocuments:\n${corpus}`, 220));
+    },
+    reviewRisks: async ({ task, summary, diffs }) => {
+      if (diffs.length === 0) return [];
+      const changes = diffs.map((d) => `=== ${d.file} ===\n${d.patch}`).join("\n\n").slice(0, 12_000);
+      return parseRisks(await ask(RISK_PROMPT, `Task: ${task}\nAgent's summary: ${summary}\n\nDiffs:\n${changes}`, 300));
     },
   };
 }
