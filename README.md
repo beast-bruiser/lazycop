@@ -78,12 +78,12 @@ Tasks you start without `/lazycop` are never touched. LazyCop's records for a ta
 With watsonx.ai credentials, Granite also writes a card after each edit about what the change decided that
 nobody asked for (a default, an edge case, a timezone), and adds alternatives when Bob gives none.
 
-Put your own credentials in `~/.lazycop/.env` (the keys are listed in
-[`.env.example`](.env.example)):
+Put your own credentials in `~/.lazycop/.env`, starting from [`.env.example`](.env.example):
 
 ```sh
 mkdir -p ~/.lazycop && chmod 700 ~/.lazycop
-printf 'WATSONX_API_KEY=...\nWATSONX_PROJECT_ID=...\n' > ~/.lazycop/.env && chmod 600 ~/.lazycop/.env
+cp .env.example ~/.lazycop/.env && chmod 600 ~/.lazycop/.env
+nano ~/.lazycop/.env    # set IBM_CLOUD_API_KEY and WATSONX_PROJECT_ID; WATSONX_URL is the API address of your region
 ```
 
 `LAZYCOP_ENV_FILE=/some/other/file` points elsewhere, and variables already set in the environment win over the
@@ -93,6 +93,28 @@ Without them, everything else works the same.
 With credentials set, LazyCop sends your task text, Bob's assumptions, the docs you name with `--docs` and
 Bob's diffs to IBM watsonx.ai under your account, for Granite to check and review them. Nothing is sent
 without credentials.
+
+## Security
+
+This repository follows the [IBM hackathon template](https://github.com/watsonxhackathon/ibm-hackathon-template):
+[`.gitignore`](.gitignore) keeps credentials and live session files out of git, [`.bobignore`](.bobignore) keeps
+Bob from reading or logging them, and [`.env.example`](.env.example) lists the variables. Read
+[SECURITY.MD](SECURITY.MD) for the full guidelines.
+
+Check that credentials stay out of git:
+
+```bash
+git status                 # must NOT show a .env file
+git check-ignore -v .env   # must print the rule that ignores it
+```
+
+Before every commit:
+
+- [ ] Reviewed `git diff` for sensitive data
+- [ ] No hardcoded API keys or passwords
+- [ ] `.env` file is NOT in staged changes
+- [ ] No files with "credential" or "secret" in name
+- [ ] Used environment variables for all credentials
 
 ## Uninstall
 

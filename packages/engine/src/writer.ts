@@ -143,10 +143,14 @@ function watsonx(apiKey: string, projectId: string, baseUrl: string, model: stri
 
 let writer: CardWriter | null = null;
 
-/** The configured writer: watsonx.ai when WATSONX_API_KEY and WATSONX_PROJECT_ID are set, else silent. */
+/**
+ * The configured writer: watsonx.ai when an API key and WATSONX_PROJECT_ID are set, else silent.
+ * The key is IBM_CLOUD_API_KEY, the hackathon template's name; WATSONX_API_KEY still works.
+ */
 export function cardWriter(): CardWriter {
   if (writer) return writer;
-  const { WATSONX_API_KEY: key, WATSONX_PROJECT_ID: project } = process.env;
+  const key = process.env.IBM_CLOUD_API_KEY ?? process.env.WATSONX_API_KEY;
+  const project = process.env.WATSONX_PROJECT_ID;
   writer = key && project
     ? watsonx(key, project, process.env.WATSONX_URL ?? "https://us-south.ml.cloud.ibm.com", process.env.WATSONX_MODEL ?? "ibm/granite-4-h-small", Number(process.env.LAZYCOP_LLM_MAX_CALLS ?? 60), process.env.WATSONX_IAM_URL ?? "https://iam.cloud.ibm.com/identity/token")
     : silent;
