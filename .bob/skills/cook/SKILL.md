@@ -197,5 +197,3 @@ needs a human. Never report done with a failing or unrun gate — name it.
 mode's `fileRegex` are what actually stop bad work. Everything else here is
 instructions, and instructions degrade under context pressure. If you want a
 step to be truly binding, make it a gate, not a sentence.
-
-Working directory: /Users/truongvinh/lazycop

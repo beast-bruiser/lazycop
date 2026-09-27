@@ -1,5 +1,6 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from "node:fs";
 import { dirname, isAbsolute, join, relative, sep } from "node:path";
+import { ignoreRecords } from "./gitignore.js";
 import { COMMAND_MD, HOOK_EVENTS, HOOK_SCRIPT_SUFFIX, MARKER, MODE_YAML, hookCommand, mcpConfig } from "./templates.js";
 
 /** Absolute paths to the built engine entry points the workspace will run. */
@@ -105,7 +106,13 @@ export function install(workspace: string, engine: EnginePaths): string[] {
     ".bob/plugins/lazycop/mcp.json",
     ".bob/commands/lazycop.md",
     ".bob/settings.json (hooks merged)",
+    ...(ignoreRecords(workspace) ? [".gitignore (.lazycop/ added)"] : []),
   ];
+}
+
+/** True when the engine runs from npx's cache, which npm may clear at any time. */
+export function inNpxCache(path: string): boolean {
+  return /[\\/]_npx[\\/]/.test(path);
 }
 
 /** Removes what `install` added and nothing else. */

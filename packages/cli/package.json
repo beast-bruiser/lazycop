@@ -1,17 +1,44 @@
 {
   "name": "lazycop",
-  "version": "0.0.1",
-  "private": true,
+  "version": "0.1.0",
+  "description": "Answer IBM Bob's assumptions as one-click cards while he works; your corrections reach him at his next step.",
+  "keywords": [
+    "ibm-bob",
+    "bob",
+    "agent",
+    "hooks",
+    "mcp"
+  ],
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/beast-bruiser/lazycops.git",
+    "directory": "packages/cli"
+  },
+  "homepage": "https://github.com/beast-bruiser/lazycops#readme",
   "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
   "bin": {
     "lazycop": "bin/lazycop.mjs"
   },
+  "files": [
+    "bin",
+    "dist/*.js"
+  ],
   "scripts": {
-    "build": "tsc --build"
+    "build": "tsc --build",
+    "prepack": "npm run build --prefix ../.. && node scripts/stage-bundle.mjs",
+    "postpack": "node scripts/stage-bundle.mjs clean"
   },
   "dependencies": {
     "@lazycops/engine": "*"
   },
+  "bundleDependencies": [
+    "@lazycops/engine",
+    "@lazycops/page"
+  ],
   "devDependencies": {
     "@types/node": "^20.0.0"
   }

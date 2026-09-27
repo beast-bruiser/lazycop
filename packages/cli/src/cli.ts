@@ -3,7 +3,7 @@
 import { createRequire } from "node:module";
 import { homedir } from "node:os";
 import { dirname, join, resolve } from "node:path";
-import { approvalTips, install, uninstall } from "./install.js";
+import { approvalTips, inNpxCache, install, uninstall } from "./install.js";
 
 const USAGE = `Usage:
   lazycop init [workspace]       install LazyCop into a Bob workspace (default: current folder)
@@ -24,9 +24,13 @@ const workspace = resolve(target ?? ".");
 
 try {
   if (command === "init") {
-    const written = install(workspace, enginePaths());
+    const engine = enginePaths();
+    const written = install(workspace, engine);
     console.log(`LazyCop installed in ${workspace}:\n${written.map((f) => `  ${f}`).join("\n")}`);
     console.log("\nReload the Bob window, check that the lazycop MCP server is connected, then type /lazycop <task>.");
+    if (inNpxCache(engine.mcpServer)) {
+      console.warn("\nWarning: this ran from npx's cache, which npm can clear at any time and break the hooks.\nInstall it for good with `npm i -g lazycop`, then run `lazycop init` again.");
+    }
     for (const tip of approvalTips(join(homedir(), ".bob", "settings", "settings.json"))) console.log(`Tip: ${tip}`);
   } else if (command === "uninstall") {
     const removed = uninstall(workspace);

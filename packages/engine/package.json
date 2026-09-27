@@ -17,10 +17,13 @@
     "start": "tsc --build && node dist/main.js"
   },
   "dependencies": {
-    "@lazycops/contracts": "*",
     "@lazycops/page": "*"
   },
   "devDependencies": {
+    "@lazycops/contracts": "*",
     "@types/node": "^20.0.0"
-  }
+  },
+  "files": [
+    "dist/*.js"
+  ]
 }

@@ -9,7 +9,13 @@
   "scripts": {
     "build": "tsc --build"
   },
-  "dependencies": {
+  "files": [
+    "index.html",
+    "dist/*.js",
+    "img",
+    "assets/audio"
+  ],
+  "devDependencies": {
     "@lazycops/contracts": "*"
   }
 }

@@ -2,24 +2,22 @@ import http from "node:http";
 import { spawn } from "node:child_process";
 import { existsSync, readFileSync } from "node:fs";
 import { createRequire } from "node:module";
-import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { HookPayload, SseEvent, SseEventInput, SseStateEvent } from "@lazycops/contracts";
 import { pageUrl } from "./mcp.js";
 import { afterStop, agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, shownOnPage, tagged, watching } from "./squad.js";
-import { loadEnvFile } from "./env.js";
+import { envFilePath, loadEnvFile } from "./env.js";
 import { onDeveloper } from "./developer.js";
 import { addDoc, fileText, isDocPath } from "./docs.js";
+import { refusal } from "./request-guard.js";
 
 const PORT = Number(process.env.LAZYCOP_PORT ?? 4747);
 
-// watsonx.ai credentials live in the lazycop repo's own .env, never in a Bob workspace.
-loadEnvFile(process.env.LAZYCOP_ENV_FILE ?? join(dirname(fileURLToPath(import.meta.url)), "../../../.env"));
+// watsonx.ai credentials live in ~/.lazycop/.env (or LAZYCOP_ENV_FILE), never in a Bob workspace.
+loadEnvFile(envFilePath());
 
 // The page lives in @lazycops/page: index.html plus its compiled modules in dist/.
 const pageDir = dirname(createRequire(import.meta.url).resolve("@lazycops/page/package.json"));
-// public/ lives at the workspace root, three levels above packages/engine/src/.
-const publicDir = join(dirname(fileURLToPath(import.meta.url)), "../../../public");
 
 function servePage(res: http.ServerResponse, path: string): void {
   const file = path === "/" ? join(pageDir, "index.html") : join(pageDir, "dist", path.slice(1));
@@ -97,6 +95,8 @@ function json(res: http.ServerResponse, body: unknown, status = 200): void {
 
 export function createServer(): http.Server {
   return http.createServer(async (req, res) => {
+    const refused = refusal(req);
+    if (refused) return json(res, { error: refused }, 403);
     const url = new URL(req.url ?? "/", "http://localhost");
 
     if (req.method === "GET" && (url.pathname === "/" || /^\/[a-z-]+\.js$/.test(url.pathname))) {
@@ -106,10 +106,10 @@ export function createServer(): http.Server {
     if (req.method === "GET" && /^\/assets\/([a-z-]+\.png|audio\/[a-z-]+\.mp3)$/.test(url.pathname)) {
       return serveAsset(res, url.pathname);
     }
-    // Static images from public/img/
+    // The page's own images, shipped in @lazycops/page/img/
     if (req.method === "GET" && /^\/img\/[a-z0-9-]+\.png$/.test(url.pathname)) {
       try {
-        const body = readFileSync(join(publicDir, url.pathname.slice(1)));
+        const body = readFileSync(join(pageDir, url.pathname.slice(1)));
         res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" });
         res.end(body);
       } catch {

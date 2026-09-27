@@ -15,32 +15,31 @@ for a task you start with `/lazycop`.
 
 ## Install
 
-**1. Build LazyCop** (once):
+**1. Install LazyCop** (once per machine):
 
 ```sh
-git clone https://github.com/beast-bruiser/lazycops.git
-cd lazycops
-npm install
-npm run build
+npm i -g lazycop
 ```
 
-**2. Install it into a Bob workspace.** From the `lazycops` folder:
+**2. Install it into a Bob workspace:**
 
 ```sh
-npx lazycop init ~/path/to/your-project
+lazycop init ~/path/to/your-project
 ```
 
-This writes four things into `your-project/.bob/`, and nothing else:
+This writes four things into `your-project/.bob/`, and adds `.lazycop/` to the project's `.gitignore` if it is
+a git repo:
 
 | File | What it is |
 | --- | --- |
 | `plugins/lazycop/custom_modes.yaml` | The 👮 LazyCop mode and its rules |
-| `plugins/lazycop/mcp.json` | The LazyCop MCP server, pointing at this repo's build |
+| `plugins/lazycop/mcp.json` | The LazyCop MCP server, pointing at the installed package |
 | `commands/lazycop.md` | The `/lazycop` command |
 | `settings.json` | Four hooks, merged in; your existing settings and hooks are kept |
 
-Running `init` again is safe. It points the workspace at this clone of the repo, so keep the clone where it is,
-or run `init` again after moving it.
+Running `init` again is safe. The workspace points at where npm installed LazyCop, so run `init` again after
+reinstalling it somewhere else. Avoid `npx lazycop init`: npx runs from a cache npm may clear, which would break
+the hooks (`init` warns you if it runs from there).
 
 **3. Reload the Bob window** (Cmd/Ctrl+Shift+P → "Reload Window") and check:
 
@@ -72,39 +71,58 @@ In Bob, start a new task with:
 - `/lazycop off` stops LazyCop early.
 
 Tasks you start without `/lazycop` are never touched. LazyCop's records for a task are kept in
-`your-project/.lazycop/`; add `.lazycop/` to that project's `.gitignore`.
+`your-project/.lazycop/`, which `init` keeps out of git.
 
 ## Optional: Granite card writer
 
 With watsonx.ai credentials, Granite also writes a card after each edit about what the change decided that
 nobody asked for (a default, an edge case, a timezone), and adds alternatives when Bob gives none.
 
+Put your own credentials in `~/.lazycop/.env` (the keys are listed in
+[`.env.example`](.env.example)):
+
 ```sh
-cp .env.example .env    # in the lazycops folder, then fill in WATSONX_API_KEY and WATSONX_PROJECT_ID
+mkdir -p ~/.lazycop && chmod 700 ~/.lazycop
+printf 'WATSONX_API_KEY=...\nWATSONX_PROJECT_ID=...\n' > ~/.lazycop/.env && chmod 600 ~/.lazycop/.env
 ```
 
-`.env` is gitignored and stays in the `lazycops` folder, never in your project. Reload the Bob window after
-changing it. Without it, everything else works the same.
+`LAZYCOP_ENV_FILE=/some/other/file` points elsewhere, and variables already set in the environment win over the
+file. Credentials stay on your machine, never in your project. Reload the Bob window after changing them.
+Without them, everything else works the same.
+
+With credentials set, LazyCop sends your task text, Bob's assumptions, the docs you name with `--docs` and
+Bob's diffs to IBM watsonx.ai under your account, for Granite to check and review them. Nothing is sent
+without credentials.
 
 ## Uninstall
 
 ```sh
-npx lazycop uninstall ~/path/to/your-project
+lazycop uninstall ~/path/to/your-project
+npm rm -g lazycop       # once no workspace uses it
 ```
 
-This removes only what `init` added; your own settings and hooks stay as they were.
+This removes only what `init` added to `.bob/`; your own settings and hooks stay as they were, and so does
+your `.gitignore`.
 
 ## Troubleshooting
 
 | Symptom | Fix |
 | --- | --- |
-| `lazycop` MCP server not connected | Run `npm run build` in `lazycops`, then reload the Bob window |
-| The page says "not built" | Run `npm run build` in `lazycops` |
+| `lazycop` MCP server not connected | Run `lazycop init` again (LazyCop moved or was reinstalled), then reload the Bob window |
+| The page says "not built" | From a clone: run `npm run build` in `lazycops` |
 | The page does not open by itself | Open http://127.0.0.1:4747 yourself |
 | "LazyCop is already running on this port" | Another LazyCop is using 4747: `lsof -nP -iTCP:4747 -sTCP:LISTEN` shows it |
 | Bob asks approval for every LazyCop call | Enable MCP in Bob's Auto-approve settings (step 4) |
 
 ## Development
+
+To run LazyCop from a clone instead of npm:
+
+```sh
+git clone https://github.com/beast-bruiser/lazycops.git && cd lazycops
+npm install && npm run build
+npx lazycop init ~/path/to/your-project    # points the workspace at this clone
+```
 
 ```sh
 npm run typecheck    # builds every package
@@ -114,7 +132,15 @@ npm test             # vitest; needs Node 22.18+ for the hook-script test
 - `packages/contracts`: shared types for every message between Bob, the server and the page
 - `packages/engine`: the local server, the hook script and the MCP server
 - `packages/page`: the browser page
-- `packages/cli`: `lazycop init` and `uninstall`
+- `packages/cli`: `lazycop init` and `uninstall`; the one package published to npm
+
+To publish, from `packages/cli`: `npm pack` builds everything and bundles the engine and page into one tarball
+(check its contents), then `npm publish`. Only `lazycop` is public; the `@lazycops/*` packages ship inside it.
 
 Design: [`docs/product/LazyCop — Two-Way Quiz Design.md`](docs/product/LazyCop%20%E2%80%94%20Two-Way%20Quiz%20Design.md).
 Rules the code must keep: [`docs/reference/architecture.md`](docs/reference/architecture.md).
+
+## Credits
+
+The page's music ([`packages/page/assets/audio/`](packages/page/assets/audio/): `preparation.mp3` and
+`action.mp3`) was generated with [Suno AI](https://suno.com).

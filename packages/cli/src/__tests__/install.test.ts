@@ -105,7 +105,7 @@ describe("lazycop init", () => {
   it("replaces a foreign absolute-path hook with the relative form on re-init inside workspace", () => {
     // Simulate settings.json written on another machine with absolute paths
     mkdirSync(join(ws, ".bob"), { recursive: true });
-    const foreignCommand = `node "/Users/truongvinh/lazycop/packages/engine/dist/hook-script.js"`;
+    const foreignCommand = `node "/home/another-dev/lazycop/packages/engine/dist/hook-script.js"`;
     const foreignSettings = {
       hooks: {
         PreToolUse: [{ matcher: "*", hooks: [{ type: "command", command: foreignCommand, timeout: 5 }] }],
@@ -121,7 +121,7 @@ describe("lazycop init", () => {
     expect(handlers).toHaveLength(4);
     for (const h of handlers) {
       expect(h.command).toBe(`node "packages/engine/dist/hook-script.js"`);
-      expect(h.command).not.toContain("/Users/truongvinh");
+      expect(h.command).not.toContain("/home/another-dev");
     }
   });
 });

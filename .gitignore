@@ -10,3 +10,5 @@ dist/
 packages/page/assets/*.png
 packages/page/assets/source/
 docs/image
+# Bob test runs in LazyCop mode; local only
+sandbox/
