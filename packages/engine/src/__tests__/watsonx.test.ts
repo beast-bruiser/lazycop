@@ -25,7 +25,7 @@ beforeAll(async () => {
 });
 
 afterAll(() => {
-  for (const k of ["WATSONX_API_KEY", "WATSONX_PROJECT_ID", "WATSONX_URL", "WATSONX_IAM_URL", "WATSONX_MODEL"]) delete process.env[k];
+  for (const k of ["IBM_CLOUD_API_KEY", "WATSONX_API_KEY", "WATSONX_PROJECT_ID", "WATSONX_URL", "WATSONX_IAM_URL", "WATSONX_MODEL"]) delete process.env[k];
   setCardWriter(null);
   return new Promise<void>((r) => mock.close(() => r()));
 });
