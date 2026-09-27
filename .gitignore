@@ -121,6 +121,9 @@ build/
 # Local Bob sandboxes for trying LazyCop
 sandbox/
 
+# npm login tokens: `npm login` keeps them in ~/.npmrc, never in this repo
+.npmrc
+
 # LazyCop: each task's records, written into the workspace LazyCop watches
 .lazycop/
 

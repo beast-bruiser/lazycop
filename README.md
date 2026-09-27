@@ -101,6 +101,11 @@ This repository follows the [IBM hackathon template](https://github.com/watsonxh
 Bob from reading or logging them, and [`.env.example`](.env.example) lists the variables. Read
 [SECURITY.MD](SECURITY.MD) for the full guidelines.
 
+**What leaves your machine.** The LazyCop server listens on `127.0.0.1` only. The page it serves loads its font
+from Google Fonts (`fonts.googleapis.com`) and its artwork from the Uploadcare CDN (`ucarecdn.com`), so opening the
+page sends your IP address to those two services. With watsonx credentials set, the card writer also calls IBM
+watsonx.ai (see [Optional: Granite card writer](#optional-granite-card-writer)); without them, nothing else goes out.
+
 Check that credentials stay out of git:
 
 ```bash
@@ -165,7 +170,8 @@ Rules the code must keep: [`docs/reference/architecture.md`](docs/reference/arch
 ## Credits
 
 The page's music ([`packages/page/assets/audio/`](packages/page/assets/audio/): `preparation.mp3` and
-`action.mp3`) was generated with [Suno AI](https://suno.com).
+`action.mp3`) was generated with [Suno AI](https://suno.com) on a paid plan, which grants the commercial use
+rights needed to redistribute it with this package.
 
 The artwork (the soldier, portrait, unit and map images in [`packages/page/assets/`](packages/page/assets/) and
 the logo in [`packages/page/img/`](packages/page/img/)) was generated with an AI image generator.

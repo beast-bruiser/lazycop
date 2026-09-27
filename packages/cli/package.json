@@ -29,6 +29,7 @@
   ],
   "scripts": {
     "build": "tsc --build",
+    "prepublishOnly": "npm run typecheck --prefix ../.. && npm test --prefix ../..",
     "prepack": "npm run build --prefix ../.. && node scripts/stage-bundle.mjs",
     "postpack": "node scripts/stage-bundle.mjs clean"
   },
