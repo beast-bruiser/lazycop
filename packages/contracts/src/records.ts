@@ -4,13 +4,16 @@
  * Shapes match the Contracts section of docs/product/LazyCop — Two-Way Quiz Design.md.
  */
 
+import type { ReportedChange } from "./mcp.js";
+
 export type LazycopRecord =
   | SessionRecord
   | EventRecord
   | CardRecord
   | AnswerRecord
   | MessageRecord
-  | ReplyRecord;
+  | ReplyRecord
+  | ReportRecord;
 
 /** A LazyCop session started or ended. `id` is Bob's session_id when a hook bound it. */
 export interface SessionRecord {
@@ -108,4 +111,25 @@ export interface ReplyRecord {
   /** The card being answered, when Bob's reply can be tied to one. */
   card?: string;
   text: string;
+}
+
+/** What LazyCop measured itself over a session, from its hook events; Bob cannot misreport these. */
+export interface MissionStats {
+  toolCalls: number;
+  /** Distinct files Bob read. */
+  filesRead: number;
+  /** Distinct files Bob edited, as the hooks saw them. */
+  filesEdited: string[];
+  /** Characters of tool input and output divided by four: an estimate, never a bill. */
+  approxTokens: number;
+}
+
+/** Bob's mission report, accepted at end_session, with LazyCop's own stats beside it. */
+export interface ReportRecord {
+  kind: "report";
+  ts: string;
+  summary: string;
+  changes: ReportedChange[];
+  effort_note?: string;
+  stats: MissionStats;
 }

@@ -33,10 +33,24 @@ const tools = [
   {
     name: "end_session",
     description:
-      "Call when the task LazyCop is watching is done, or when the developer says /lazycop off. Pass every assumption you relied on that the developer did not confirm; if the developer disagrees with one, you get the correction instead and must fix it, then call end_session again.",
+      "Call when the task LazyCop is watching is done, or when the developer says /lazycop off. File your mission report: summary, one changes entry per file you changed, and effort_note if the work took a lot of effort. A file you changed but left out sends the report back. Also pass every assumption you relied on that the developer did not confirm; if the developer disagrees with one, you get the correction instead and must fix it, then call end_session again.",
     inputSchema: {
       type: "object",
       properties: {
+        summary: { type: "string", description: "One or two sentences: what the task achieved." },
+        changes: {
+          type: "array",
+          description: "One entry per file you changed.",
+          items: {
+            type: "object",
+            properties: {
+              file: { type: "string", description: "Workspace path of the file." },
+              what: { type: "string", description: "What changed in it, and why." },
+            },
+            required: ["file", "what"],
+          },
+        },
+        effort_note: { type: "string", description: "Only if the work took a lot of effort: why (retries, wide searches, dead ends)." },
         assumptions: { type: "array", items: { type: "string" }, description: "Assumptions you relied on without the developer confirming them." },
         stop: { type: "boolean", description: "true when the developer typed /lazycop off: stop at once, with no final review." },
       },

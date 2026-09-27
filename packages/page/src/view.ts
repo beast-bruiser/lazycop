@@ -1,5 +1,7 @@
 // What the page shows, folded from the server's event stream. No DOM here, so it is testable.
-import type { AnswerRecord, CardRecord, SseEvent, SseStateEvent } from "@lazycops/contracts";
+import type { AnswerRecord, CardRecord, SseEvent, SseReportEvent, SseStateEvent } from "@lazycops/contracts";
+import type { Loadout } from "./loadout.js";
+import { emptyLoadout, foldLoadout } from "./loadout.js";
 
 export interface CardView {
   card: CardRecord;
@@ -45,6 +47,10 @@ export interface ViewState {
   filesRead: string[];
   filesEdited: string[];
   trail: TrailStop[];
+  /** Bob's tools, skills, subagents and mode, as the soldier's loadout. */
+  loadout: Loadout;
+  /** Bob's mission report, once end_session accepted it. */
+  report: SseReportEvent["report"] | null;
 }
 
 export const EDIT_TOOLS = ["apply_diff", "write_file", "search_and_replace", "insert_content"];
@@ -66,7 +72,7 @@ function relative(path: string, cwd: string): string {
 }
 
 export const emptyView = (): ViewState => ({
-  connected: false, task: null, ended: false, hold: false, waiting: null, cards: [], feed: [], filesRead: [], filesEdited: [], trail: [],
+  connected: false, task: null, ended: false, hold: false, waiting: null, cards: [], feed: [], filesRead: [], filesEdited: [], trail: [], loadout: emptyLoadout(), report: null,
 });
 
 /** Rebuilds the whole view from the server's snapshot: the page keeps no state of its own. */
@@ -90,7 +96,7 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
       return fromSnapshot(event);
     case "session":
       return event.on
-        ? { ...emptyView(), connected: true, task: event.task ?? "", feed: [{ at: event.at, kind: "session", text: "LazyCop started watching" }] }
+        ? { ...emptyView(), connected: true, task: event.task ?? "", loadout: emptyLoadout(event.skills), feed: [{ at: event.at, kind: "session", text: "LazyCop started watching" }] }
         : { ...view, ended: true, hold: false, waiting: null, feed: feed("session", "LazyCop stopped watching") };
     case "hold":
       return { ...view, hold: event.on, holdCard: event.on ? event.card : undefined, feed: feed("hold", event.on ? "Bob is on hold" : `Hold released (${event.reason})`) };
@@ -125,6 +131,8 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
       return event.tool === "declare_step" ? { ...view, feed: feed("step", String(event.args["intent"] ?? "")) } : view;
     case "hook": {
       const p = event.payload;
+      const loadout = foldLoadout(view.loadout, p);
+      if (loadout !== view.loadout) view = { ...view, loadout };
       if (p.hook_event_name !== "PostToolUse" || p.tool_name.startsWith("mcp__lazycop__")) return view;
       const kind = toolKind(p.tool_name);
       const path = pathOf(p.tool_input);
@@ -134,6 +142,8 @@ export function reduce(view: ViewState, event: SseEvent): ViewState {
       if (p.tool_name === "read_file") return { ...view, trail, filesRead: addOnce(view.filesRead, path!), feed: feed("read", path!) };
       return { ...view, trail };
     }
+    case "report":
+      return { ...view, report: event.report };
     default:
       return view;
   }
@@ -183,7 +193,7 @@ export function summary(view: ViewState) {
 /** Health lost each time the developer corrects one of Bob's assumptions. */
 export const HIT = 20;
 
-/** Bob's health, 0–100: agreeing or asking why costs nothing, a correction costs HIT. */
+/** SYNC, 0–100: how closely the developer and Bob read the task alike. Agreeing or asking why costs nothing, a correction costs HIT. */
 export function health(view: ViewState): number {
   return Math.max(0, 100 - HIT * summary(view).corrected);
 }

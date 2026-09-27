@@ -9,7 +9,7 @@ import type { HookResult } from "./hook.js";
 import { onHook } from "./hook.js";
 import type { Push } from "./mcp.js";
 import { onMcp } from "./mcp.js";
-import { START_TOOL } from "./session.js";
+import { START_TOOL, endSession } from "./session.js";
 import { withRecordDir } from "./logger.js";
 
 /** The agent of a chat whose hooks are not installed: its MCP calls cannot be told apart. */
@@ -17,6 +17,8 @@ export const SOLO = "solo";
 const OWN_TOOL = "mcp__lazycop__";
 /** A PreToolUse hook not followed by its MCP call within this long is forgotten. */
 const EXPECT_MS = 60_000;
+/** A Bob told not to stop yet that stays quiet this long ignored the Stop hook: his task is closed. */
+export const STOP_GRACE_MS = 60_000;
 
 export interface Agent {
   id: string;
@@ -37,6 +39,12 @@ export interface Squad {
 }
 
 export const createSquad = (): Squad => ({ agents: new Map(), expected: [], history: [], seq: 0 });
+
+/**
+ * Whether the page sees a hook event. It only uses what happened, so tools show once, after they
+ * run; a subagent shows from its start too, so the page can tell its calls from its parent's.
+ */
+export const shownOnPage = (p: HookPayload) => p.hook_event_name !== "PreToolUse" || p.tool_name === "spawn_subagent";
 
 export const isWatching = (agent: Agent) => agent.store.session !== null;
 export const watching = (squad: Squad) => [...squad.agents.values()].filter(isWatching);
@@ -115,6 +123,22 @@ export async function runMcp(squad: Squad, tool: string, args: Record<string, un
   const text = await withRecords(agent, () => onMcp(agent.store, tool, args, tagged(push, agent)));
   if (tool === "start_session") agent.task = agent.store.session?.task ?? agent.task;
   return text;
+}
+
+/** Ends an agent's task without end_session: no mission report, but the page reaches its wrap-up. */
+export function closeAgent(agent: Agent, push: Push): void {
+  if (!isWatching(agent)) return;
+  withRecords(agent, () => endSession(agent.store));
+  tagged(push, agent)({ type: "session", on: false });
+}
+
+/** After a watched chat's Stop hook: close its task now, or once it stays quiet after being told to end it. */
+export function afterStop(agent: Agent, end: boolean, push: Push, graceMs = STOP_GRACE_MS): void {
+  if (end) return closeAgent(agent, push);
+  const { store, lastActive } = agent;
+  setTimeout(() => {
+    if (agent.store === store && agent.lastActive === lastActive) closeAgent(agent, push);
+  }, graceMs).unref();
 }
 
 export function agentsInfo(squad: Squad): AgentInfo[] {

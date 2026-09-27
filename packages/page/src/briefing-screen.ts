@@ -1,10 +1,12 @@
 // Screen 1 — mission briefing: Bob's unit profile beside the tactical map.
 import { health } from "./view.js";
 import { esc, focusN, ui } from "./page-state.js";
-import { ABILITY, WEAPON, callSign, unitPortrait, unitSprite, imgClass } from "./units.js";
+import { callSign, unitPortrait, unitSprite, imgClass } from "./units.js";
+import { classOf, renderLoadout } from "./loadout-view.js";
 import { renderSquadBar } from "./squad-bar.js";
+import { muted } from "./audio.js";
 
-/** Ten segments, filled from the left; the colour warns as Bob's health falls. */
+/** Ten segments, filled from the left; the colour warns as SYNC with Bob falls. */
 function hpSegments(): string {
   const filled = Math.round(health(ui.view) / 10);
   return Array.from({ length: 10 }, (_, i) => {
@@ -25,25 +27,15 @@ function renderUnitProfile(): string {
       <div class="unit-info">
         <div class="unit-name">UNIT: ${callSign(n)}</div>
         <div class="unit-rank">SQUAD: ${squad} AGENT${squad === 1 ? "" : "S"}</div>
-        <div class="unit-hp-label">HEALTH:</div>
+        <div class="unit-rank" title="The mode Bob last switched to">CLASS: ${esc(classOf(ui.view.loadout))}</div>
+        <div class="unit-hp-label" title="How closely you and Bob read the task alike; each correction costs 20">SYNC:</div>
         <div class="hp-segments">${hpSegments()}</div>
       </div>
     </div>
     <div class="unit-sprite-area">
       <img class="unit-sprite ${imgClass("unit")}" src="${unitSprite(n)}" alt="Bob's soldier">
     </div>
-    <div class="loadout">
-      <div class="loadout-slot">
-        <div class="slot-label">PRIMARY\nWEAPON:</div>
-        <span class="slot-icon">🎯</span>
-        <div class="slot-name">${WEAPON}</div>
-      </div>
-      <div class="loadout-slot">
-        <div class="slot-label">SPECIAL\nABILITY:</div>
-        <span class="slot-icon">🛡️</span>
-        <div class="slot-name">${ABILITY}</div>
-      </div>
-    </div>
+    ${renderLoadout(ui.view.loadout)}
   </div>`;
 }
 
@@ -57,7 +49,10 @@ export function renderBriefingScreen(): string {
       <div class="game-logo">⚔ LAZYCOP</div>
       <div class="mission-label">▶ MISSION BRIEFING</div>
       <div class="briefing-task">${esc(v.task ?? "No active mission")}</div>
-      <span class="${statusCls}">${status}</span>
+      <div class="briefing-controls">
+        <span class="${statusCls}">${status}</span>
+        <button class="hud-mute" data-mute title="Toggle sound and music">${muted() ? "🔇" : "🔊"}</button>
+      </div>
     </div>
     <div id="briefing-body">
       ${renderUnitProfile()}
@@ -70,6 +65,8 @@ export function renderBriefingScreen(): string {
       <div class="briefing-prompt">▶ SELECT AGENT AND CONFIRM MISSION</div>
       ${v.task && !v.ended
         ? `<button class="start-btn" data-enter-mission>ENTER MISSION ▶</button>`
+        : v.task && v.ended
+        ? `<button class="start-btn" data-enter-mission>LAST MISSION REPORT ▶</button>`
         : `<div style="font-family:var(--px);font-size:8px;color:var(--c-muted)">Waiting for /lazycop command…</div>`}
     </div>
   </div>`;

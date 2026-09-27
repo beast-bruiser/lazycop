@@ -1,4 +1,6 @@
 import type { PendingMessage, CardRecord, SseEvent } from "@lazycops/contracts";
+import type { Usage } from "./report.js";
+import { emptyUsage } from "./report.js";
 
 /** The task LazyCop is watching. `id` is Bob's session_id, bound by the start_session hook. */
 export interface Session {
@@ -30,6 +32,10 @@ export interface StoreState {
   confirmFor?: string;
   /** The task's documents by workspace path, for the knowledge agent. */
   docs: Map<string, string>;
+  /** What Bob's tool calls cost this session, for his mission report. */
+  usage: Usage;
+  /** Bob tried to end his turn without end_session and was told to call it; a second stop ends the task. */
+  stopNudged: boolean;
   waiters: Set<() => void>;
 }
 
@@ -43,6 +49,8 @@ export function createStore(): StoreState {
     cards: new Map(),
     history: [],
     docs: new Map(),
+    usage: emptyUsage(),
+    stopNudged: false,
     waiters: new Set(),
   };
 }
@@ -64,6 +72,8 @@ export function clearSession(store: StoreState): void {
   store.lastReplyCard = undefined;
   store.confirmFor = undefined;
   store.docs.clear();
+  store.usage = emptyUsage();
+  store.stopNudged = false;
   wake(store);
 }
 

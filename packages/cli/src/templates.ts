@@ -42,9 +42,13 @@ customModes:
          and answer with reply_to_developer.
       4. When told the developer is reviewing, call check_in with the poll number it gives you.
          Never end your turn while on hold.
-      5. When the task is done, call end_session with assumptions: every assumption you relied on
-         that the developer did not confirm. If the developer disagrees with one, you get the
-         correction instead: fix it, answer with reply_to_developer, then call end_session again.
+      5. When the task is done, call end_session with your mission report: summary (one or two
+         sentences on what the task achieved), changes (one entry per file you changed: file, and
+         what changed and why), and effort_note if the work took a lot of effort (retries, wide
+         searches, dead ends). A file you changed but left out sends the report back. Also pass
+         assumptions: every assumption you relied on that the developer did not confirm. If the
+         developer disagrees with one, you get the correction instead: fix it, answer with
+         reply_to_developer, then call end_session again.
     groups:
       - read
       - edit
@@ -69,7 +73,8 @@ Otherwise:
    --docs followed by comma-separated paths, pass those paths as docs and leave them out of task.
 3. Do the task by the LazyCop mode's rules: declare_step before every file edit, address
    developer messages first and answer them with reply_to_developer, check_in while on hold,
-   and end_session when the task is done, passing the assumptions the developer did not confirm.
+   and end_session when the task is done, with your mission report (summary, changes,
+   effort_note) and the assumptions the developer did not confirm.
 
 Request: $ARGUMENTS
 `;

@@ -113,6 +113,7 @@ body {
   border: 1px solid var(--c-muted);
   color: var(--c-muted);
 }
+#briefing-title .briefing-controls { display: flex; align-items: center; gap: 10px; }
 #briefing-title .status-badge.watching { border-color: var(--c-green); color: var(--c-green); }
 
 /* Split panels */
@@ -506,6 +507,15 @@ img.art { image-rendering: auto !important; object-fit: contain; }
   margin-left: auto;
 }
 .hud-hold.on { background: var(--c-orange); color: #000; }
+.hud-mute {
+  font-size: 14px;
+  line-height: 1;
+  padding: 2px 6px;
+  border: 2px solid var(--c-border2);
+  background: transparent;
+  cursor: pointer;
+}
+.hud-mute:hover { border-color: var(--c-cyan); }
 
 /* The live tactical map fills the mission screen; the dialogs float over it */
 #field-map {
@@ -655,6 +665,24 @@ img.art { image-rendering: auto !important; object-fit: contain; }
 .screen-stats .ok   { color: var(--c-green); }
 .screen-stats .warn { color: var(--c-orange); }
 .screen-stats .gold { color: var(--c-gold); }
+#screen-overlay .mission-label { font-family: var(--px); font-size: 8px; color: var(--c-cyan); margin-bottom: 10px; }
+.report-box {
+  width: min(560px, 100%); max-height: 55vh; overflow-y: auto;
+  text-align: left; background: rgba(10,10,10,0.9);
+  border: 3px solid #333; padding: 12px 14px;
+}
+.rep-summary { font-size: 13px; color: var(--c-white); line-height: 1.5; margin-bottom: 10px; }
+.rep-none { font-size: 11px; color: var(--c-muted); }
+.rep-h { font-family: var(--px); font-size: 7px; color: var(--c-gold); margin: 8px 0 6px; }
+.rep-h.warn { color: var(--c-orange); margin-top: 0; }
+.rep-changes { list-style: none; font-size: 12px; color: #ccc; line-height: 1.5; }
+.rep-changes li { padding: 3px 0; border-bottom: 1px solid #222; }
+.rep-file { color: var(--c-cyan); font-family: monospace; }
+.rep-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 6px; margin-top: 12px; }
+.rep-stat { background: #111; border: 2px solid #2a2a2a; padding: 6px; display: flex; flex-direction: column; gap: 4px; }
+.rep-stat-v { font-family: var(--px); font-size: 10px; color: var(--c-green); }
+.rep-stat-l { font-family: var(--px); font-size: 6px; color: var(--c-muted); }
+.rep-effort { margin-top: 12px; border-left: 3px solid var(--c-orange); padding: 6px 10px; font-size: 12px; color: #ddd; line-height: 1.5; }
 
 /* ─── COMPOSE BAR (bottom strip) ─── */
 #compose-bar {
@@ -708,14 +736,15 @@ img.art { image-rendering: auto !important; object-fit: contain; }
 }
 #hist-panel.open { transform: none; }
 
+.panel-toggles {
+  position: fixed; bottom: 56px; right: 12px;
+  display: flex; gap: 6px; z-index: 160;
+}
 .panel-toggle {
-  position: fixed; bottom: 56px;
   font-family: var(--px); font-size: 6px;
   background: #000; border: 2px solid #444;
-  color: #888; padding: 4px 8px; cursor: pointer; z-index: 160;
+  color: #888; padding: 4px 8px; cursor: pointer;
 }
-#log-toggle  { right: 12px; }
-#hist-toggle { left: 12px; }
 
 .log-h {
   font-family: var(--px); font-size: 6px;

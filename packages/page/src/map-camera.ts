@@ -2,8 +2,8 @@
 import { MAP_H, MAP_W } from "./map-model.js";
 import { TILE } from "./map-art.js";
 
-const VIEW_W = 20;
-const VIEW_H = 26;
+const VIEW_W = 30;
+const VIEW_H = 38;
 /** How fast the camera catches up with its target, per second. */
 const FOLLOW = 4;
 
@@ -28,9 +28,10 @@ export interface View {
 
 /** The camera's view for a canvas of this size, kept inside the map's edges. */
 export function viewOf(width: number, height: number): View {
-  // A big screen zooms in until the map covers it, rather than showing it small in a dark frame.
+  // The map is portrait and panels are usually landscape: show VIEW_H rows with dark bands at the sides
+  // rather than cropping to the map's width, but never zoom out past the whole map.
   const fit = Math.min(width / (VIEW_W * TILE), height / (VIEW_H * TILE));
-  const px = Math.max(fit, width / (MAP_W * TILE), height / (MAP_H * TILE));
+  const px = Math.max(fit, Math.min(width / (MAP_W * TILE), height / (MAP_H * TILE)));
   const tile = TILE * px;
   const clamp = (centre: number, screen: number, size: number) =>
     size * tile <= screen ? (screen - size * tile) / 2 : Math.min(0, Math.max(screen - size * tile, screen / 2 - centre * tile));

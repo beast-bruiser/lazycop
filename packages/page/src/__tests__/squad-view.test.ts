@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import type { CardRecord, SseEvent } from "@lazycops/contracts";
 import { SOLO, emptySquad, focused, focusedView, reduceSquad } from "../squad-view.js";
-import { buildSquadMap } from "../map-model.js";
+import { buildSquadMap, homeSlot } from "../map-model.js";
 
 const at = (s: number) => `2026-09-26T12:00:0${s}.000Z`;
 const start = (agent: string, task: string, s = 0): SseEvent => ({ type: "session", at: at(s), on: true, task, agent });
@@ -64,7 +64,7 @@ describe("squad view", () => {
     const squad = run(start("a", "Coupons"), start("b", "Rounding"), read("b", "docs/y.md", 1), read("a", "src/x.ts", 2), read("b", "src/z.ts", 3));
     const map = buildSquadMap(squad.agents, "a");
     expect(map.places.map((p) => p.key)).toEqual(["", "docs", "src"]);
-    expect(map.soldiers.map((s) => [s.id, s.at])).toEqual([["a", 2], ["b", 2]]);
+    expect(map.soldiers.map((s) => [s.id, s.at])).toEqual([["a", homeSlot("src")], ["b", homeSlot("src")]]);
     expect(map.places.find((p) => p.key === "src")!.visits).toBe(2);
   });
 });

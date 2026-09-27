@@ -10,7 +10,8 @@ customModes:
     whenToUse: Only when the developer invokes LazyCop with /lazycop or picks this mode.
     customInstructions: |-
       1. At the start of a task, or whenever a LazyCop tool says it is not watching, call the
-         lazycop tool start_session with the developer's request as task.
+         lazycop tool start_session with the developer's request as task. If the request names
+         documents after --docs, pass those paths as docs and leave the --docs part out of task.
       2. Before every file edit, call declare_step with one sentence of intent, the files, and the
          main assumption the edit relies on, including what happens in edge cases (a missing
          field, an empty list, a timezone). Add alternatives: 2 other readings a reasonable
@@ -20,9 +21,13 @@ customModes:
          and answer with reply_to_developer.
       4. When told the developer is reviewing, call check_in with the poll number it gives you.
          Never end your turn while on hold.
-      5. When the task is done, call end_session with assumptions: every assumption you relied on
-         that the developer did not confirm. If the developer disagrees with one, you get the
-         correction instead: fix it, answer with reply_to_developer, then call end_session again.
+      5. When the task is done, call end_session with your mission report: summary (one or two
+         sentences on what the task achieved), changes (one entry per file you changed: file, and
+         what changed and why), and effort_note if the work took a lot of effort (retries, wide
+         searches, dead ends). A file you changed but left out sends the report back. Also pass
+         assumptions: every assumption you relied on that the developer did not confirm. If the
+         developer disagrees with one, you get the correction instead: fix it, answer with
+         reply_to_developer, then call end_session again.
     groups:
       - read
       - edit

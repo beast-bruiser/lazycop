@@ -31,10 +31,12 @@ export function renderPanels(): string {
       <div class="log-h">FILES EDITED</div>
       <p style="font-size:10px;color:#666;line-height:1.6">${files}</p>
     </div>
-    <button class="panel-toggle" id="log-toggle" data-log-toggle>📜 LOG</button>
     <div id="hist-panel" class="${ui.histOpen ? "open" : ""}">
       <div class="log-h">📋 BATTLE HISTORY (${done.length})</div>
       ${histItems}
     </div>
-    <button class="panel-toggle" id="hist-toggle" data-hist-toggle>📋 HIST</button>`;
+    <div class="panel-toggles">
+      <button class="panel-toggle" id="hist-toggle" data-hist-toggle>📋 HIST</button>
+      <button class="panel-toggle" id="log-toggle" data-log-toggle>📜 LOG</button>
+    </div>`;
 }

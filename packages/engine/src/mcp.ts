@@ -5,6 +5,8 @@ import { appendRecord } from "./logger.js";
 import { startSession, endSession } from "./session.js";
 import { addAlternatives, makeCard, noteDelivered, reviewBeforeEnd, specCheck } from "./review.js";
 import { loadNamedDocs } from "./docs.js";
+import { definedSkills } from "./skills.js";
+import { buildReport, parseChanges, sendBack, unreportedFiles } from "./report.js";
 
 export const HOLD_WAIT_MS = 45_000;
 export const MAX_HOLD_POLLS = 3;
@@ -24,7 +26,7 @@ export async function onMcp(
   if (tool === "start_session") {
     const { task, docs } = args as unknown as StartSessionInput;
     startSession(store, String(task ?? ""));
-    push({ type: "session", on: true, task: store.session!.task });
+    push({ type: "session", on: true, task: store.session!.task, skills: definedSkills(store.session!.cwd) });
     const loaded = loadNamedDocs(store, store.session!.cwd, docs, push);
     const named = loaded.length ? ` LazyCop checks your assumptions against: ${loaded.join(", ")}.` : "";
     return `LazyCop is watching this task. The developer follows along at ${pageUrl()}. Call declare_step before every file edit.${named}`;
@@ -33,12 +35,16 @@ export async function onMcp(
   if (!store.session) return "LazyCop is not watching this task. Continue without it.";
 
   if (tool === "end_session") {
-    const { assumptions, stop } = args as unknown as EndSessionInput;
+    const { assumptions, stop, summary, effort_note } = args as unknown as EndSessionInput;
     if (stop === true) {
       endSession(store);
       push({ type: "session", on: false });
       return "LazyCop stopped watching.";
     }
+    // The report comes first: a file Bob changed but did not report sends it straight back.
+    const changes = parseChanges((args as { changes?: unknown }).changes);
+    const missing = unreportedFiles(store.usage, changes, store.session.cwd);
+    if (missing.length) return sendBack(missing);
     const list = (Array.isArray(assumptions) ? assumptions : []).filter((a): a is string => typeof a === "string" && a.trim() !== "").slice(0, 5);
     const objections = await reviewBeforeEnd(store, list, HOLD_WAIT_MS, push);
     // Answers still waiting for Bob's next step would be lost if the task closed now: that step is this one.
@@ -53,6 +59,9 @@ export async function onMcp(
     if (toFix.length) {
       return `Before you finish, the developer disagrees:\n- ${toFix.join("\n- ")}\nFix these, answer with reply_to_developer, then call end_session again.`;
     }
+    const report = buildReport(store.usage, { summary, effort_note }, changes);
+    appendRecord({ kind: "report", ts: new Date().toISOString(), ...report });
+    push({ type: "report", report });
     endSession(store);
     push({ type: "session", on: false });
     return "LazyCop stopped watching.";

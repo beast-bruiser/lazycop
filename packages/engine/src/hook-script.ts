@@ -29,7 +29,8 @@ try {
   process.exit(0);
 }
 
-if (answer.block && payload["hook_event_name"] === "PreToolUse") {
+// Exit 2 refuses the call, or on Stop keeps Bob's turn going; stderr tells him why.
+if (answer.block && (payload["hook_event_name"] === "PreToolUse" || payload["hook_event_name"] === "Stop")) {
   process.stderr.write(answer.block);
   process.exit(2);
 }

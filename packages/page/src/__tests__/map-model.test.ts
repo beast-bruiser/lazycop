@@ -1,7 +1,8 @@
 import { describe, it, expect } from "vitest";
 import type { CardRecord, SseEvent } from "@lazycops/contracts";
 import { emptyView, health, reduce } from "../view.js";
-import { DROP_ZONE, ROADS, SLOTS, UNCHARTED, buildMap, placeKey, route } from "../map-model.js";
+import type { MapModel } from "../map-model.js";
+import { DROP_ZONE, ROADS, SLOTS, UNCHARTED, buildMap, homeSlot, placeKey, route } from "../map-model.js";
 
 const at = "2026-09-26T12:00:00.000Z";
 const cwd = "/work/shop";
@@ -13,6 +14,7 @@ const card = (id: string): CardRecord => ({
   kind: "card", id, type: "assumption", question: "q", claim: "c", source: "declare_step",
   options: [{ id: "bob", text: "c" }, { id: "other", text: "Something else…" }, { id: "ask_why", text: "Ask Bob why" }],
 });
+const slotOf = (map: MapModel, key: string) => map.places.find((p) => p.key === key)!.slot;
 const run = (...events: SseEvent[]) =>
   events.reduce(reduce, reduce({ ...emptyView(), connected: true }, { type: "session", at, on: true, task: "t" }));
 
@@ -38,7 +40,7 @@ describe("tactical map", () => {
     const map = buildMap(view);
     expect(view.trail.map((s) => s.path)).toEqual(["src/cart.ts", "docs", "src/coupon.ts"]);
     expect(map.places.map((p) => [p.key, p.visits, p.edits])).toEqual([["", 0, 0], ["src", 2, 1], ["docs", 1, 0]]);
-    expect(map.at).toBe(1);
+    expect(map.at).toBe(slotOf(map, "src"));
     expect(map.steps).toBe(3);
   });
 
@@ -46,7 +48,15 @@ describe("tactical map", () => {
     const map = buildMap(run(post("read_file", { path: "src/a.ts" }), post("execute_command", { command: "npm test" })));
     expect(map.at).toBe(DROP_ZONE);
     expect(map.places.find((p) => p.slot === DROP_ZONE)!.visits).toBe(1);
-    expect(map.places.find((p) => p.key === "src")!.slot).toBe(1);
+    expect(map.places.find((p) => p.key === "src")!.slot).toBe(homeSlot("src"));
+  });
+
+  it("keeps a folder at the same spot whatever order Bob reaches it in", () => {
+    const one = buildMap(run(post("read_file", { path: "src/a.ts" }), post("read_file", { path: "docs/b.md" })));
+    const two = buildMap(run(post("read_file", { path: "docs/b.md" }), post("read_file", { path: "src/a.ts" })));
+    expect(slotOf(one, "src")).toBe(slotOf(two, "src"));
+    expect(slotOf(one, "docs")).toBe(slotOf(two, "docs"));
+    expect(slotOf(one, "src")).not.toBe(slotOf(one, "docs"));
   });
 
   it("folds folders past the last free slot into one uncharted place", () => {
@@ -66,7 +76,8 @@ describe("tactical map", () => {
       { type: "card", at, card: card("k-2") },
       { type: "answer", at, answer: { kind: "answer", card: "k-0", pick: "bob" } },
     );
-    expect(buildMap(view).enemies).toEqual([{ card: "k-1", slot: 1, active: true }, { card: "k-2", slot: 2, active: false }]);
+    const map = buildMap(view);
+    expect(map.enemies).toEqual([{ card: "k-1", slot: slotOf(map, "src"), active: true }, { card: "k-2", slot: slotOf(map, "docs"), active: false }]);
   });
 
   it("leaves no enemies once the task ends, since its open cards were cancelled", () => {

@@ -62,3 +62,6 @@ Four append-only files connect all components — hooks, companion, MCP server, 
 ## Docs discipline
 
 Only a breaking change earns a doc edit: a data contract shape, an MCP tool signature, a hook input mapping, or an invariant. Research digests and debug notes go to `docs/research/`.
+
+# Sandbox folder
+Sandbox folder contains only test result from Bob agent in LazyCop mode, so ignore when user asks, only focus when explicitly mention

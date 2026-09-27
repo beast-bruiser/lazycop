@@ -10,7 +10,6 @@ const ARMOUR: [string, string][] = [
 ];
 
 export const WEAPON = "DECLARE STEP";
-export const ABILITY = "HOLD THE LINE";
 
 const armour = (n: number) => ARMOUR[(Math.max(1, n) - 1) % ARMOUR.length]!;
 export const agentColor = (n: number) => armour(n)[0];

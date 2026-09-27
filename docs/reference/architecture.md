@@ -35,7 +35,7 @@ developer sets in `packages/page/src/art-urls.ts` (image GETs only; nothing is s
 Bob-facing channels never leave localhost.
 
 **6. Contract types live only in the shared package.**
-The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`,
+The type definitions for all data contracts (`DeclareStepInput`, `CheckInInput`, `EndSessionInput`,
 `ReplyToDeveloperInput`, hook payloads, and `.lazycop/` record kinds) are declared
 once in `packages/contracts` and imported everywhere; they are never re-declared
 in a surface package.
@@ -51,3 +51,13 @@ watched agent's. MCP calls carry no `session_id`, so each is matched to the PreT
 hook Bob fired for it; a chat without hooks is one "solo" agent. Bob subtasks and
 subagents share their root chat's `session_id` (Bob 2.2.0), so they act as that chat's
 agent. The `declare_step` rule lives in the LazyCop mode, never in always-loaded rules.
+
+**8. A task closes with Bob's mission report, and LazyCop measures the numbers itself.**
+`end_session` carries Bob's report: `summary`, one `changes` entry per file he
+changed (file, and what changed and why), and an optional `effort_note` when the
+work took a lot of effort. A file the PostToolUse hooks saw him edit but the report
+leaves out sends the report back, and the session stays open. Tool calls, files read,
+files edited and approximate tokens (tool input and output characters ÷ 4) are
+counted by LazyCop from its own hook events, never taken from Bob, and are shown for
+information only: there is no budget and no pass/fail. The accepted report is
+appended as a `report` record and pushed to the page before the session ends.

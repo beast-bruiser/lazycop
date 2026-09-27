@@ -97,6 +97,22 @@ export function placeKey(path: string, dir = false): string {
   return GROUPS.includes(parts[0]!) && folders >= 2 ? `${parts[0]}/${parts[1]}` : parts[0]!;
 }
 
+/** A folder's own spot, picked from its name so it stands in the same place from one task to the next. */
+export function homeSlot(key: string): number {
+  let h = 2166136261;
+  for (let i = 0; i < key.length; i++) h = Math.imul(h ^ key.charCodeAt(i), 16777619);
+  return 1 + ((h >>> 0) % (UNCHARTED - 1));
+}
+
+/** The home spot, or the next free one when another folder holds it; uncharted once every spot is taken. */
+function freeSlot(key: string, taken: Set<number>): number {
+  for (let i = 0; i < UNCHARTED - 1; i++) {
+    const slot = 1 + ((homeSlot(key) - 1 + i) % (UNCHARTED - 1));
+    if (!taken.has(slot)) return slot;
+  }
+  return UNCHARTED;
+}
+
 const labelOf = (key: string) => (key === "(root)" ? "REPO ROOT" : key.split("/").at(-1)!.toUpperCase().slice(0, 12));
 
 /** One agent alone: the map as it was before squads. */
@@ -106,7 +122,7 @@ export function buildMap(view: ViewState): MapModel {
   return { places: map.places, at, steps, last, enemies: map.enemies.map(({ card, slot, active }) => ({ card, slot, active })) };
 }
 
-/** The squad on one map: places are shared, and handed out in the order any agent first reached them. */
+/** The squad on one map: places are shared, each folder at its own spot (see homeSlot). */
 export function buildSquadMap(agents: AgentTrail[], focus: string | undefined): SquadMap {
   const places: Place[] = [{ slot: DROP_ZONE, key: "", label: "DROP ZONE", visits: 0, edits: 0 }];
   const slotOfKey = new Map<string, number>();
@@ -118,7 +134,7 @@ export function buildSquadMap(agents: AgentTrail[], focus: string | undefined): 
 
   for (const { stop, i } of stops) {
     const key = stop.path === null ? "" : placeKey(stop.path, stop.kind === "search");
-    const slot = stop.path === null ? DROP_ZONE : slotOfKey.get(key) ?? Math.min(slotOfKey.size + 1, UNCHARTED);
+    const slot = stop.path === null ? DROP_ZONE : slotOfKey.get(key) ?? freeSlot(key, new Set(slotOfKey.values()));
     if (stop.path !== null) slotOfKey.set(key, slot);
     let place = places.find((p) => p.slot === slot);
     if (!place) places.push((place = { slot, key, label: labelOf(key), visits: 0, edits: 0 }));

@@ -4,6 +4,7 @@ import { esc, focusN, ui } from "./page-state.js";
 import { WEAPON, callSign, unitPortrait, imgClass } from "./units.js";
 import { renderBattleOverlays } from "./battle-overlays.js";
 import { renderSquadBar } from "./squad-bar.js";
+import { muted } from "./audio.js";
 
 function renderActiveHud(): string {
   const view = ui.view;
@@ -21,7 +22,7 @@ function renderActiveHud(): string {
     <div class="hud-lives"><div class="hud-lives-label">LIVES</div>x${Math.max(0, total - answered)}</div>
     <div class="hud-div"></div>
     <div class="hud-hp">
-      <span class="hud-hp-label">HP</span>
+      <span class="hud-hp-label" title="How closely you and Bob read the task alike; each correction costs 20">SYNC</span>
       <div class="hud-hp-track"><div class="${hpCls}" style="width:${hp}%"></div></div>
     </div>
     <div class="hud-div"></div>
@@ -37,6 +38,7 @@ function renderActiveHud(): string {
       <div style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px">${esc(stageName)}</div>
     </div>
     <button class="hud-hold ${view.hold ? "on" : ""}" data-hold title="Hold or release ${callSign(focusN())}">${view.hold ? "▶ RESUME" : "⏸ HOLD"}</button>
+    <button class="hud-mute" data-mute title="Toggle sound">${muted() ? "🔇" : "🔊"}</button>
   </div>`;
 }
 

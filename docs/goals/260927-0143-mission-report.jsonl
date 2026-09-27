@@ -1,0 +1,14 @@
+{"kind":"goal","title":"Bob files a mission report at end_session","at":"2026-09-26T23:43Z"}
+{"kind":"state","s":1,"at":"2026-09-26T23:43Z","outcome":"end_session's input carries summary, per-file changes and an optional effort_note, typed once in @lazycops/contracts","plane":"engine"}
+{"kind":"state","s":2,"at":"2026-09-26T23:43Z","outcome":"An end_session whose report omits a file the hooks saw Bob edit is sent back naming the missing files, and the session stays open","plane":"engine"}
+{"kind":"state","s":3,"at":"2026-09-26T23:43Z","outcome":"An accepted report reaches the page with LazyCop's own measured stats: tool calls, files read, files edited, approximate tokens","plane":"engine"}
+{"kind":"state","s":4,"at":"2026-09-26T23:43Z","outcome":"The MISSION CLEAR screen shows the report (summary, changes, stats, effort note) in place of the agree score","plane":"panel"}
+{"kind":"state","s":5,"at":"2026-09-26T23:43Z","outcome":"The HP bar reads SYNC, with its behaviour unchanged","plane":"panel"}
+{"kind":"state","s":6,"at":"2026-09-26T23:43Z","outcome":"The Bob rule template and architecture reference describe the report","plane":"engine"}
+{"kind":"reached","s":1,"at":"2026-09-26T23:50Z","evidence":"ReportedChange + EndSessionInput.summary/changes/effort_note in contracts/src/mcp.ts; ReportRecord, MissionStats in records.ts; SseReportEvent in api.ts; tsc --build clean"}
+{"kind":"reached","s":2,"at":"2026-09-26T23:50Z","evidence":"mcp.ts runs unreportedFiles before the assumption review and returns sendBack(missing); report.test.ts: 'is sent back naming each file…' and malformed-changes case pass"}
+{"kind":"reached","s":3,"at":"2026-09-26T23:50Z","evidence":"report.ts counts PostToolUse (excl. mcp__lazycop__) in hook.ts; end_session appends report record and pushes {type:report} before session off; report.test.ts asserts stats {toolCalls:3, filesRead:1, filesEdited:[src/coupon.ts]} and ordering"}
+{"kind":"reached","s":4,"at":"2026-09-26T23:50Z","evidence":"mission-report.ts renders summary/changes/stats/effort note on MISSION CLEAR, 'No report filed' fallback; battle-overlays.ts no longer shows agree score; mission-report.test.ts passes"}
+{"kind":"reached","s":5,"at":"2026-09-26T23:50Z","evidence":"HUD label HP→SYNC (mission-screen.ts), HEALTH:→SYNC: (briefing-screen.ts) with tooltip; health() unchanged, HIT still 20"}
+{"kind":"reached","s":6,"at":"2026-09-26T23:50Z","evidence":"templates.ts rule + command ask for the report (.bob copies match); mcp-server.ts schema documents fields; architecture.md invariant 8 added, EndSessionInput named in invariant 6"}
+{"kind":"closed","at":"2026-09-26T23:50Z","disposition":"Shipped: Bob files a mission report at end_session (summary, per-file changes, effort note), unreported edits send it back, LazyCop's own stats shown on MISSION CLEAR; HP renamed SYNC. Gates: typecheck + 154 vitest green. Browser pass not run."}

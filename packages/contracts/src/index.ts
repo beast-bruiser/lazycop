@@ -1,4 +1,4 @@
-export type { StartSessionInput, EndSessionInput, DeclareStepInput, CheckInInput, ReplyToDeveloperInput } from "./mcp.js";
+export type { StartSessionInput, EndSessionInput, ReportedChange, DeclareStepInput, CheckInInput, ReplyToDeveloperInput } from "./mcp.js";
 export type {
   HookEventName,
   HookPayloadBase,
@@ -22,12 +22,15 @@ export type {
   AnswerPick,
   MessageRecord,
   ReplyRecord,
+  ReportRecord,
+  MissionStats,
 } from "./records.js";
 export type {
   SseEvent,
   SseStateEvent,
   SseSessionEvent,
   SessionInfo,
+  SkillInfo,
   AgentInfo,
   FromAgent,
   SseHoldEvent,
@@ -40,6 +43,7 @@ export type {
   SseReplyEvent,
   SseWaitingEvent,
   SseDocEvent,
+  SseReportEvent,
   SseEventInput,
   QueueBody,
   HoldBody,

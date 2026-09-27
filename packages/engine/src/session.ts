@@ -3,6 +3,7 @@ import type { StoreState } from "./store.js";
 import { clearSession } from "./store.js";
 import { appendRecord, setRecordDir } from "./logger.js";
 import { cancelAllCards } from "./cards.js";
+import { emptyUsage } from "./report.js";
 
 export const START_TOOL = "mcp__lazycop__start_session";
 
@@ -21,6 +22,7 @@ export function bindSession(store: StoreState, id: string, cwd: string): void {
 /** Called from the start_session MCP call. Without a hook binding, cards still work but hooks stay dormant. */
 export function startSession(store: StoreState, task: string): void {
   store.history = [];
+  store.usage = emptyUsage();
   if (store.session) store.session.task = task;
   else store.session = { id: null, task };
   const { id } = store.session;

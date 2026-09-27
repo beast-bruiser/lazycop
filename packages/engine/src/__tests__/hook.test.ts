@@ -14,11 +14,11 @@ describe("hook ignores events it does not act on", () => {
     expect(result).toEqual({});
   });
 
-  it("returns empty for Stop event", () => {
+  it("returns empty for a Stop event of a chat it does not watch", () => {
     const store = watchedStore();
     const result = onHook(store, {
       hook_event_name: "Stop",
-      session_id: "s-1",
+      session_id: "s-other",
       cwd: "/work",
       last_assistant_message: "Done.",
     });

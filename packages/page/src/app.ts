@@ -2,8 +2,10 @@
 // and forms to the server, and folds the server's event stream into the view.
 import type { SseEvent } from "@lazycops/contracts";
 import { currentCard } from "./view.js";
-import { disconnected, reduceSquad } from "./squad-view.js";
+import { disconnected, focusedView, reduceSquad } from "./squad-view.js";
 import { esc, focusedAgent, onRender, post, refocus, secondsLeft, ui } from "./page-state.js";
+import { sfxAgree, sfxChallenge, sfxEdit, sfxMissionClear, sfxQuestion, toggleMute } from "./audio.js";
+import { syncMusic } from "./music.js";
 import { renderBriefingScreen } from "./briefing-screen.js";
 import { renderMissionScreen } from "./mission-screen.js";
 import { countdownHtml } from "./battle-overlays.js";
@@ -30,6 +32,7 @@ function render(): void {
 
   const noticeHtml = ui.notice ? `<p class="notice-bar">${esc(ui.notice)}</p>` : "";
   root.innerHTML = noticeHtml + (ui.inMission ? renderMissionScreen() : renderBriefingScreen()) + renderPanels();
+  syncMusic(ui.inMission ? "action" : "preparation");
   updateMap(ui.squad, focusedAgent()?.id);
   attachMap(root.querySelector<HTMLElement>(".map-host"));
 
@@ -50,6 +53,10 @@ function focusOn(agent: string): void {
 }
 onPickAgent(focusOn);
 onAssetsChanged(render);
+// Browsers hold audio until the developer interacts; the first click or key starts the music.
+const unlockMusic = () => syncMusic(ui.inMission ? "action" : "preparation");
+document.addEventListener("pointerdown", unlockMusic, { once: true });
+document.addEventListener("keydown", unlockMusic, { once: true });
 
 // ── Event delegation ─────────────────────────────────────────
 function answer(card: string, pick: string, text?: string): void {
@@ -60,6 +67,7 @@ root.addEventListener("click", (e) => {
   const el = (e.target as HTMLElement).closest<HTMLElement>("button, [data-enter-mission], [data-to-briefing]");
   if (!el) return;
 
+  if (el.dataset.mute !== undefined)         { toggleMute(); render(); return; }
   if (el.dataset.hold !== undefined)         { void post("/hold", { on: !ui.view.hold, agent: focusedAgent()?.id }); return; }
   if (el.dataset.logToggle !== undefined)    { ui.logOpen = !ui.logOpen; render(); return; }
   if (el.dataset.histToggle !== undefined)   { ui.histOpen = !ui.histOpen; render(); return; }
@@ -75,6 +83,8 @@ root.addEventListener("click", (e) => {
     form.querySelector("input")!.focus();
     return;
   }
+  if (pick === "bob") sfxAgree();
+  else if (pick !== "ask_why") sfxChallenge();
   answer(card, pick, pick === "ask_why" ? undefined : text);
 });
 
@@ -112,10 +122,20 @@ setInterval(() => {
 
 // SSE stream
 const stream = new EventSource("/stream");
+let loaded = false;
 stream.onmessage = (e) => {
+  const prevView = focusedView(ui.squad, ui.focus);
   try { ui.squad = reduceSquad(ui.squad, JSON.parse(e.data) as SseEvent); }
   catch { ui.notice = "Got an event LazyCop's page could not read"; }
   refocus();
+  const nextView = ui.view;
+  // A mission that ended before this page loaded opens on the briefing, not its wrap-up.
+  if (!loaded) { loaded = true; if (nextView.ended) { ui.leftEnded = true; render(); return; } }
+  if (nextView.cards.length > prevView.cards.length) sfxQuestion();
+  const prevEdits = prevView.trail.filter((t) => t.kind === "edit").length;
+  const nextEdits = nextView.trail.filter((t) => t.kind === "edit").length;
+  if (nextEdits > prevEdits) sfxEdit();
+  if (nextView.ended && !prevView.ended) sfxMissionClear();
   render();
 };
 stream.onerror = () => { ui.squad = disconnected(ui.squad); refocus(); render(); };

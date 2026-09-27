@@ -13,13 +13,13 @@
 
 export const ART_URLS = {
   /** Top-down jungle terrain, 1152 × 1408 (36 × 44 tiles); roads, places and soldiers are drawn on top. */
-  map: "",
+  map: "https://ucarecdn.com/bb281164-cc5e-4e91-93d9-ee4733642da9/map.png",
   /** Soldier sheet: 3 frames side by side facing right (standing, walk A, walk B), transparent, grey armour. */
-  soldier: "",
+  soldier: "https://ucarecdn.com/7e903dc7-917f-4d6d-b70d-84f0997fc86b/soldier.png",
   /** Full-body soldier for the unit profile and the side-scroller, transparent, grey armour. */
-  unit: "",
+  unit: "https://ucarecdn.com/131631e6-ad3e-4302-9f64-5353060cfd6e/unit.png",
   /** Face for the unit profile and the HUD, square. */
-  portrait: "",
+  portrait: "https://ucarecdn.com/28c3b2bd-132f-42b4-b12b-46d89d7775ca/portrait.png",
 };
 
 /** An image slot the page draws. Adding a slot above is all it takes to register it. */

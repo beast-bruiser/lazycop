@@ -34,8 +34,22 @@ export interface StartSessionInput {
   docs?: string[];
 }
 
+/** One file Bob changed, as his mission report states it. */
+export interface ReportedChange {
+  /** Workspace path of the file. */
+  file: string;
+  /** What changed in it, and why. */
+  what: string;
+}
+
 /** end_session — Bob calls this when the task is done, or on `/lazycop off`. */
 export interface EndSessionInput {
+  /** One or two sentences: what the task achieved. */
+  summary?: string;
+  /** One entry per file Bob changed; a file the hooks saw him edit but left out sends the report back. */
+  changes?: ReportedChange[];
+  /** Why the work took the effort it did, when it took a lot: retries, wide searches, dead ends. */
+  effort_note?: string;
   /** Assumptions Bob relied on that the developer never confirmed; each becomes a final card. */
   assumptions?: string[];
   /** true on `/lazycop off`: stop at once, with no final review. */

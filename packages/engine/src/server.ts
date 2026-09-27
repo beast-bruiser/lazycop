@@ -6,7 +6,7 @@ import { fileURLToPath } from "node:url";
 import { join, dirname } from "node:path";
 import type { HookPayload, SseEvent, SseEventInput, SseStateEvent } from "@lazycops/contracts";
 import { pageUrl } from "./mcp.js";
-import { agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, tagged, watching, withRecords } from "./squad.js";
+import { afterStop, agentsInfo, createSquad, isWatching, latest, routeHook, runMcp, shownOnPage, tagged, watching, withRecords } from "./squad.js";
 import { reviewEdit } from "./review.js";
 import { loadEnvFile } from "./env.js";
 import { onDeveloper } from "./developer.js";
@@ -33,11 +33,11 @@ function servePage(res: http.ServerResponse, path: string): void {
   }
 }
 
-/** Optional art the developer drops into packages/page/assets; the page falls back to its own when absent. */
+/** Optional art and music the developer drops into packages/page/assets; the page falls back to its own when absent. */
 function serveAsset(res: http.ServerResponse, path: string): void {
   try {
     const body = readFileSync(join(pageDir, path.slice(1)));
-    res.writeHead(200, { "content-type": "image/png", "cache-control": "no-cache" });
+    res.writeHead(200, { "content-type": path.endsWith(".mp3") ? "audio/mpeg" : "image/png", "cache-control": "no-cache" });
     res.end(body);
   } catch {
     res.writeHead(404, { "content-type": "text/plain" });
@@ -101,8 +101,8 @@ export function createServer(): http.Server {
     if (req.method === "GET" && (url.pathname === "/" || /^\/[a-z-]+\.js$/.test(url.pathname))) {
       return servePage(res, url.pathname);
     }
-    // Only kebab-case .png files directly in assets/: the pattern leaves no room for another path.
-    if (req.method === "GET" && /^\/assets\/[a-z-]+\.png$/.test(url.pathname)) {
+    // Only kebab-case .png files in assets/ and .mp3 files in assets/audio/: the patterns leave no room for another path.
+    if (req.method === "GET" && /^\/assets\/([a-z-]+\.png|audio\/[a-z-]+\.mp3)$/.test(url.pathname)) {
       return serveAsset(res, url.pathname);
     }
 
@@ -137,14 +137,15 @@ export function createServer(): http.Server {
       case "/hook": {
         const payload = body as HookPayload;
         const { agent, result } = routeHook(squad, payload);
-        // The page only uses what happened, so tools are shown once, after they run.
-        if (agent && isWatching(agent) && payload.hook_event_name !== "PreToolUse") {
+        const { end, ...answer } = result;
+        if (agent && isWatching(agent) && shownOnPage(payload)) {
           const send = tagged(push, agent);
           send({ type: "hook", seq: ++squad.seq, payload });
           void withRecords(agent, () => reviewEdit(agent.store, payload, send));
           keepDocBobRead(agent, payload, send);
         }
-        return json(res, result);
+        if (agent && payload.hook_event_name === "Stop") afterStop(agent, end === true, push);
+        return json(res, answer);
       }
       case "/mcp": {
         const { tool, args } = body as { tool: string; args: Record<string, unknown> };

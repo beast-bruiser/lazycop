@@ -1,7 +1,8 @@
 // The dialogs over the mission screen's tactical map: the battle card, Bob's question and the end screen.
 import type { CardView } from "./view.js";
-import { currentCard, summary, waitingQuestion } from "./view.js";
+import { currentCard, waitingQuestion } from "./view.js";
 import { esc, secondsLeft, ui } from "./page-state.js";
+import { renderMissionReport } from "./mission-report.js";
 
 export function countdownHtml(c: CardView, cls: string): string {
   if (!c.waitUntil) return "";
@@ -75,18 +76,11 @@ function renderScreenOverlay(): string {
     return `<div id="screen-overlay"><div class="screen-title">CONNECTING…</div><div class="screen-sub">Linking to LazyCop server…</div></div>`;
   }
   if (!ui.view.ended) return `<div id="screen-overlay" class="hidden"></div>`;
-  const s = summary(ui.view);
-  const score = s.cards > 0 ? Math.round((s.agreed / s.cards) * 100) : 0;
   return `<div id="screen-overlay">
     <div class="screen-trophy">🏆</div>
     <div class="screen-title">MISSION CLEAR!</div>
-    <div class="screen-stats">
-      SIDEQUESTS &nbsp;<span class="gold">${s.cards}</span><br>
-      AGREED &nbsp;&nbsp;&nbsp;&nbsp;<span class="ok">${s.agreed}</span><br>
-      CHALLENGED &nbsp;<span class="warn">${s.corrected}</span><br>
-      ASKED WHY &nbsp;&nbsp;<span class="warn">${s.askedWhy}</span><br>
-      SCORE &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;<span class="gold">${score}%</span>
-    </div>
+    <div class="mission-label">▶ MISSION REPORT</div>
+    ${renderMissionReport(ui.view)}
     <div style="margin-top:16px"><button class="start-btn" data-to-briefing>◀ MISSION SELECT</button></div>
   </div>`;
 }

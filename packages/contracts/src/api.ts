@@ -4,7 +4,7 @@
  */
 
 import type { HookPayload } from "./hooks.js";
-import type { CardRecord, AnswerRecord } from "./records.js";
+import type { CardRecord, AnswerRecord, ReportRecord } from "./records.js";
 
 // ---------------------------------------------------------------------------
 // SSE events (server → page, over /stream)
@@ -49,12 +49,20 @@ export interface SseStateEvent {
   history: SseEvent[];
 }
 
+/** A Bob skill defined in the watched repo's .bob/skills: a soldier's skill before Bob loads it. */
+export interface SkillInfo {
+  name: string;
+  description: string;
+}
+
 /** A session started (on) or ended (off). */
 export interface SseSessionEvent {
   type: "session";
   at: string;
   on: boolean;
   task?: string;
+  /** On a start: every skill defined in the watched repo, read once when the session starts. */
+  skills?: SkillInfo[];
 }
 
 /** Hold state changed. */
@@ -148,6 +156,13 @@ export interface SseReplyEvent {
   card?: string;
 }
 
+/** Bob's mission report was accepted; the session-off event follows it. */
+export interface SseReportEvent {
+  type: "report";
+  at: string;
+  report: Omit<ReportRecord, "kind" | "ts">;
+}
+
 export type SseEvent =
   | SseStateEvent
   | ((
@@ -162,6 +177,7 @@ export type SseEvent =
       | SseReplyEvent
       | SseWaitingEvent
       | SseDocEvent
+      | SseReportEvent
     ) & FromAgent);
 
 /** An SSE event before the server stamps its `at` time. */
